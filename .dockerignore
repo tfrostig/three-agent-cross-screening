@@ -1,0 +1,7 @@
+**
+!docker/
+!docker/Dockerfile
+!docker/runtime.R
+!docker/install.R
+!R/
+!R/contracts.R

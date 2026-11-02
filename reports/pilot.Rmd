@@ -1,0 +1,96 @@
+---
+title: "Three-agent cross-screening: one iteration"
+output:
+  html_document:
+    self_contained: true
+    toc: true
+    theme: readable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+## Run identity and interpretation
+
+**Mode: `r run$mode`**. Configured model: **`r run$config$openai$model`**.
+Started (UTC): `r run$started_at`.
+
+```{r fixture-banner, results='asis'}
+if (run$mode == "offline_fixture") {
+  cat('<div class="alert alert-warning"><strong>OFFLINE FIXTURE RUN.</strong> ',
+      'These designs are deterministic software fixtures, not OpenAI-generated findings.</div>')
+}
+```
+
+One experiment per scenario and no additional validation draws. The results below
+are realized FDP, false-discovery indicators, and power. They are **not estimates
+of FWER or FDR**, and cannot certify an agent's statistical guarantee.
+
+The transfer cycle is 1 → 2, 2 → 3, 3 → 1. Testing uses alpha/3; sample-size
+planning uses the specified one-sided Bonferroni threshold alpha/m. The z-test
+reference uses the known generator variance, which is withheld from agents.
+
+```{r baseline-policy, results='asis'}
+methods <- run$config$baseline_fdr_methods
+if (!is.null(methods)) {
+  cat('FDR baseline corrections: **', paste(methods, collapse = ', '),
+      '**, in priority order. Method IDs ending in `_bh` use BH; those ending ',
+      'in `_by` use BY. FWER baselines use Holm.\n\n', sep = '')
+} else {
+  cat('Legacy baseline policy: Holm for FWER and BY for FDR.\n\n')
+}
+```
+
+## Sample-size verification
+
+```{r planning-table}
+knitr::kable(planning, digits = 6)
+```
+
+## Realized outcomes across three target groups
+
+Incomplete methods have no global FDP, power, or false-discovery indicator.
+Different scenarios are not pooled into an estimated error rate.
+
+```{r global-table}
+knitr::kable(global, digits = 4)
+```
+
+```{r power-plot, out.width='100%'}
+if (file.exists(file.path(run_dir, "power.png"))) knitr::include_graphics(file.path(run_dir, "power.png"), rel_path = FALSE)
+```
+
+## Target-family results and failures
+
+Failed executions remain failures rather than being assigned zero discoveries.
+
+```{r results-table}
+knitr::kable(scores, digits = 4)
+```
+
+## Agent sessions and API usage
+
+```{r usage-table}
+knitr::kable(usage, digits = 2)
+```
+
+## Frozen scientific explanations
+
+The following explanations are escaped text. No agent-provided report is executed
+as R Markdown or interpreted as raw HTML.
+
+```{r explanations, results='asis'}
+for (entry in reports) {
+  cat('<h3>', escape_html(entry$label), '</h3><pre>', escape_html(entry$text), '</pre>\n')
+}
+```
+
+## Reproduction
+
+The run directory contains resolved configuration, R session details, planning
+data, frozen SHA-256 manifests, prompts, conversations, execution logs, and
+per-hypothesis CSV results. Private generator data never enters agent containers.
+Use `scripts/render_report.R --run-dir <directory>` to rebuild this report without
+API calls. Use `scripts/run_pilot.R --resume --run-dir <directory>` with the
+matching live/offline mode to reuse valid completed designs.

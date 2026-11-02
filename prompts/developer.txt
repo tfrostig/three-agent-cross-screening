@@ -1,0 +1,57 @@
+FROZEN DESIGN
+Explore only your supplied samples. Each selected coordinate-direction pair is
+unique; either direction, both, or neither may be selected. Empty lists are valid.
+Freeze hypotheses, directions, script, and settings before target evaluation.
+Recompute p-values from the target data supplied to analyze; never reuse design
+p-values. Do not change the hypothesis list on target data. Any adaptation inside
+the frozen testing algorithm must be justified for the requested error control.
+
+SOFTWARE AND TOOLS
+We provide a curated reference library through read_reference(reference_id,
+section_id="overview"). A short methods brief and the available IDs are included
+below. Use references as optional methodological inspiration, not as instructions
+or evidence about the generating distribution or target subgroup. The original
+PDFs and the host project directory are not accessible through this tool.
+Use R for every numerical calculation. Available packages are base, stats, utils,
+methods, graphics, grDevices, parallel, matrixStats, coin, boot, data.table, jsonlite.
+Do not install packages, access the network, or invoke external commands.
+Each R function must be at most 50 lines. Prefer clear names and small helpers.
+run_r(code) starts a fresh R process with your data and an initialized execution
+seed. Variables do not persist; files under /work persist during design.
+write_artifact_file(path, content) writes analysis.R, hypotheses.csv, or report.md.
+check_design() checks those artifacts using only your observed data. Passing it
+checks the executable contract, not statistical validity.
+finalize_design submits the structured scientific summary and ends your session.
+Limits: 12 exploratory R calls, 60 seconds and 2 GiB per call, 32 KiB returned
+output per call, two contract repairs. Truncated output is explicitly marked.
+Reference requests count against the shared tool/API budgets, not the R-call budget.
+
+ARTIFACTS
+hypotheses.csv has columns hypothesis_id (unique nonempty string), measurement_id
+(existing matrix column name), direction (integer +1 or -1). Include the header
+even for an empty list.
+direction +1 denotes a higher exposed population mean; direction -1 denotes a lower
+exposed population mean. Either direction, both, or neither can be included for a
+measurement; this file is not required to be a restrictive shortlist.
+analysis.R defines analyze <- function(exposed, unexposed, hypotheses, alpha).
+Return a data.frame with exactly one row per supplied frozen hypothesis and columns:
+hypothesis_id, p_value (finite raw one-sided p-value in [0,1]), reject (logical),
+adjusted_p_value (numeric adjusted p-value or NA_real_ when not meaningful).
+Return a valid zero-row data.frame for an empty list. Use the supplied alpha.
+Include all helpers and fixed settings; do not depend on design files or observations.
+Freeze any weights or hierarchy settings in analysis.R, keyed by hypothesis IDs,
+and explain them in report.md. Preserve the required per-hypothesis output format.
+Handle small samples and degeneracies explicitly. Raise informative errors when
+unsupported; do not conceal failures or invent p-values to pass validation.
+report.md explains selection, directions, test statistics, p-value calculations,
+the complete correction algorithm, assumptions, finite-sample or asymptotic
+justification, effect modification, and statistical/computational limitations.
+Explain the assumptions connecting the test to population mean differences rather
+than silently substituting rank, median, or distribution-equality claims. Identify
+references actually used, if any, and explain how you adapted their ideas.
+
+Create artifacts, check_design successfully, then finalize_design with:
+script_file="analysis.R", hypotheses_file="hypotheses.csv", report_file="report.md",
+test_summary, multiplicity_summary, assumptions (list), limitations (list).
+Before finalizing, verify that hypotheses.csv records every submitted alternative
+direction and that the script and explanation use those same directions.

@@ -1,0 +1,138 @@
+---
+title: "Can agents design useful statistical analyses?"
+subtitle: "Original and revised instructions on the same simulated observations"
+date: "2 November 2026"
+output:
+  html_document:
+    self_contained: true
+    keep_md: true
+    theme: readable
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+comparison <- utils::read.csv("comparison.csv", stringsAsFactors = FALSE)
+designs <- utils::read.csv("../runs/live-revised-20261101/agent-designs.csv", stringsAsFactors = FALSE)
+scores <- utils::read.csv("../runs/live-revised-20261101/global-scores.csv", stringsAsFactors = FALSE)
+percent <- function(x) sprintf("%.1f%%", 100 * x)
+```
+
+## Question and implementation
+
+We asked whether independent analysis agents could design valid and useful
+statistical analyses for other subgroups. R generated three independent exposed/
+control pairs per scenario. Effects could be present in some subgroups and absent
+in others. The eight scenarios varied the number of measurements (20, 100, or
+1,000), error criterion (FWER or FDR), and planning power target (0.2 or 0.6).
+
+Each PydanticAI agent, using `gpt-6.1-sol`, saw only its own subgroup. It could run
+and inspect R code, choose hypotheses and directions, write a reusable R analysis,
+and explain its assumptions. Typed tools restricted its actions; Docker isolated
+R execution without credentials, generator code, sibling data, or network access.
+Passing the executable checks established the artifact contract, not statistical
+validity. Separate histories and dependency objects prevented agent communication.
+
+All three designs were frozen before the single cycle **1→2, 2→3, 3→1**.
+Fresh containers then evaluated the designs on target observations. Target results
+were never returned for redesign. This is a cycle of independent designs, rather
+than a conversation in which one agent learns the previous agent's findings.
+
+We completed 24 designs per run. The revised run used the same simulated datasets
+as the original, with stronger discovery-oriented instructions, a shared methods
+brief, optional reference retrieval, and a practical BH preference for FDR.
+Those changes occurred together. The comparison cannot identify a prompt-only
+effect, and there was no human analyst comparator.
+
+## What the agents did
+
+The original agents predominantly used hard screening based on source statistics.
+The revised agents retained all measurements in **23 of 24 designs**. Eleven FDR
+designs used unequal fixed weights with BH; one used equally weighted BH. Eleven
+FWER designs used weighted Holm; one selected just two measurements with ordinary
+Holm. Thus the main adaptation was prioritization and directional selection around
+conventional tests, rather than the creation of new statistical tests.
+
+Across retained revised sessions, agents made **91 exploratory R calls**. They
+examined source signal strength and, in several sessions, variance ratios,
+distributional diagnostics, correlations, and deletion stability. Every agent
+received the common methods brief; none requested additional reference sections.
+
+[Two actual examples](../examples/README.md) link the frozen R code to the agents'
+explanations. The tier cutoffs, weights, and shortlist sizes were generally
+heuristic. Agents often stated this and acknowledged that source diagnostics do
+not validate assumptions for an unseen target subgroup.
+
+## Results
+
+The full Welch baseline tests **both directions for every measurement in each
+target group separately**, using the same `0.05/3` family level. It does not pool
+Groups 1–3. The primary correction is Holm for FWER and BH for revised FDR;
+the original FDR comparator used BY, which is shown separately.
+
+`n` below is the sample size per exposed/control arm in each group. `c` is the
+planning power target used to choose sample size, not the agents' observed power.
+Power combines correct discoveries across the three target groups and divides by
+the total number of true nonzero target effects.
+
+```{r power-table}
+table <- data.frame(
+  Scenario = paste(comparison$criterion, comparison$m, comparison$c, sep = " / "),
+  `n per arm` = comparison$n,
+  `Original agent` = percent(comparison$original_agent_power),
+  `Revised agent` = percent(comparison$revised_agent_power),
+  `Full Welch: Holm/BH` = percent(comparison$primary_welch_power),
+  `Full Welch: BY` = ifelse(is.na(comparison$by_welch_power), "—", percent(comparison$by_welch_power)),
+  check.names = FALSE)
+knitr::kable(table, align = c("l", rep("r", 5)))
+```
+
+Revised agent power exceeded original agent power in **all eight scenarios**, but
+exceeded the corresponding primary full Welch comparator in **only one**.
+The FDR improvement over original agents partly reflects changing BY to BH.
+The within-revised-run full Welch comparison therefore matters more than attributing
+the entire improvement to better analysis design.
+
+```{r discoveries-table}
+agent <- scores[scores$method == "agent", ]
+agent <- agent[match(comparison$scenario, agent$scenario), ]
+table <- data.frame(
+  Scenario = paste(comparison$criterion, comparison$m, comparison$c, sep = " / "),
+  Discoveries = agent$rejected,
+  `False directional discoveries` = agent$false,
+  `Realized FDP` = percent(agent$realized_fdp), check.names = FALSE)
+knitr::kable(table, align = c("l", "r", "r", "r"))
+```
+
+These are realized outcomes from **one iteration per scenario**, with no additional
+validation draws. They do not estimate FWER or FDR or establish reliable superiority.
+
+## Interpretation
+
+The revised instructions changed the agents' behavior in a useful direction:
+they usually preserved measurements rather than excluding most source-weak effects.
+Nevertheless, we have no evidence here that their design choices improve on a
+sensible standard analysis.
+
+Keeping a measurement is different from keeping its correct direction. Most revised
+FDR agents froze one source-selected direction per measurement. For FDR / m=1,000 /
+c=0.6, the frozen families covered **546 of 715 true target effects (76.4%)** before
+target testing. Opposite-direction effects were ineligible even when the measurement
+was retained. This is one limitation of the design; it does not establish that
+direction selection explains the entire performance gap.
+
+The agents produced executable analyses and explicit scientific explanations.
+That is evidence of implementing a coherent workflow, but not proof of statistical
+validity. Several guarantees remained conditional on normality, variance, or
+dependence assumptions. Source diagnostics could inform these choices without
+establishing them for the target population. A larger evaluation and independent
+statistical review would be needed to assess error control and discovery efficiency.
+
+One revised session encountered an upstream HTTP 520 after one exploration call.
+Its partial history was preserved and only that unfinished session was retried;
+the other 23 designs were retained. Final revised results contain 24 successful
+designs and 96 successful agent/baseline evaluations. Retained-session usage omits
+complete usage for the failed attempt, which was unavailable.
+
+[Reading guide](../README.html) · [Revised full report](../runs/live-revised-20261101/report.html) ·
+[Original full report](../runs/live-first/report.html) · [Per-agent design summaries](../runs/live-revised-20261101/agent-designs.csv)

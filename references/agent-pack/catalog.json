@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "brief_file": "brief.md",
+  "files": {
+    "brief.md": "65ca9e9a951fa465e0572474c15f3920672c070c3c90f04ffad68b992c272ca7",
+    "cards/two-team.md": "513bcfc57ccaa12087fa8583277eadf0a91c6824531205832f2247f14c907862",
+    "excerpts/two-team-design.txt": "96fe558d001c6d0cfbd9ec13f77eb6c5e306b6edab267945c4df7b114a64b3f7",
+    "excerpts/two-team-gatekeeping.txt": "eacc861ffe37b905602b1356bc6c38a0290a285e0a2ec1e6b6f157737c79aa0b",
+    "cards/proposal.md": "6c196e909c066d35cde70c66b941ee976cef3452184c8f1969c487341dc6bcf0",
+    "cards/cross-screening-2018.md": "18fe72f631561cb975d9e7a1dd5537bd248854849afbb1de878686867e03f2ec",
+    "excerpts/cross-screening-2018-excerpt.txt": "fed0a36042b082e727fefea99e78605f13270a633d4b1ef53f7581a518daddcf",
+    "cards/replicability-2018.md": "ba7daeac0f234f70a6391f378b594745de39f45a54763e27034c7dd30962296b",
+    "excerpts/replicability-2018-excerpt.txt": "e4351a1bd0127d069033324ca04be3829566fed842a1f4e564b35f23e4b717a5",
+    "cards/adafilter.md": "a2e7644d8ac8a402168737ced8d68fff34ee557a46d967163b2410157ff81e04",
+    "excerpts/adafilter-excerpt.txt": "02b88b7017425923ebde40ad7e5d60fdc13691ac971003991b68af95a62e96f5",
+    "cards/cofilter.md": "6dd275cf8f7f9ede1134cc2b208f206e0d0930ed2ce9a0e05429c2e950b43797",
+    "excerpts/cofilter-excerpt.txt": "ca4b45a9e805f61302694661987f39ca4d147fa8d6f7e4825b5411d5c9cd2300",
+    "cards/replicability-review.md": "3de9595effd7ff171a76cc4c123aa45ddd4519f21e43d8ab615e49471bf29816",
+    "excerpts/replicability-review-excerpt.txt": "d7cb8330e2f44398151799bcea7111048809730d06acb5902af429ac0ab679b9"
+  },
+  "references": {
+    "two-team": {
+      "title": "Two-team exploration, confirmation, and replication",
+      "citation": "Roy et al. (2026). Exploration, Confirmation, and Replication in the Same Observational Study. JASA. doi:10.1080/01621459.2026.2668130.",
+      "source_file": "Exploration  Confirmation  and Replication in the Same Observational Study  A Two Team Cross-Screening Approach to Studying the Effect of Unwanted Pre.pdf",
+      "source_sha256": "4966ebf807e594dd8eaf03d47ce2f48ca3498e596e4d4b0c6edf4b4ef99d3295",
+      "sections": {
+        "overview": {
+          "file": "cards/two-team.md",
+          "kind": "curated summary",
+          "pages": "6–7, 10–13"
+        },
+        "design": {
+          "file": "excerpts/two-team-design.txt",
+          "kind": "source excerpt; layout/whitespace normalized, watermark lines removed, Symbol-font glyphs transcribed",
+          "pages": "6"
+        },
+        "gatekeeping": {
+          "file": "excerpts/two-team-gatekeeping.txt",
+          "kind": "source excerpt; layout/whitespace normalized, watermark lines removed, Symbol-font glyphs transcribed",
+          "pages": "11"
+        }
+      }
+    },
+    "proposal": {
+      "title": "Research motivation: independent teams and heterogeneous subgroups",
+      "citation": "NSF-BSF. Cross-Screening to Simultaneously Explore, Confirm, and Replicate Findings. Project Description.",
+      "source_file": "Research_proposal.pdf",
+      "source_sha256": "1beb2dd07241606a025ccec66b83030237e8ec7d87f35759cfdd979c2a54850d",
+      "sections": {
+        "overview": {
+          "file": "cards/proposal.md",
+          "kind": "curated summary",
+          "pages": "6–9"
+        }
+      }
+    },
+    "cross-screening-2018": {
+      "title": "Cross-screening in observational studies",
+      "citation": "Zhao, Small and Rosenbaum (2018). Cross-Screening in Observational Studies That Test Many Hypotheses. JASA. doi:10.1080/01621459.2017.1407770.",
+      "source_file": "Zhao-CrossScreeningObservationalStudies-2018.pdf",
+      "source_sha256": "990f374abae804133728b095bbd9cb20a81c24d6f5575c14a170067fa0923c3c",
+      "sections": {
+        "overview": {
+          "file": "cards/cross-screening-2018.md",
+          "kind": "curated summary",
+          "pages": "2–4"
+        },
+        "excerpt": {
+          "file": "excerpts/cross-screening-2018-excerpt.txt",
+          "kind": "source excerpt; layout/whitespace normalized, watermark lines removed, Symbol-font glyphs transcribed",
+          "pages": "2"
+        }
+      }
+    },
+    "replicability-2018": {
+      "title": "Replicability across two studies",
+      "citation": "Bogomolov and Heller (2018). Assessing replicability of findings across two studies of multiple features. Biometrika. doi:10.1093/biomet/asy029.",
+      "source_file": "BOGOMOLOV-Assessingreplicabilityfindings-2018.pdf",
+      "source_sha256": "04b7919f050fb7ba07f6a9fad5476d370f91c9ad08680dbd0348a4d90af91d15",
+      "sections": {
+        "overview": {
+          "file": "cards/replicability-2018.md",
+          "kind": "curated summary",
+          "pages": "2, 4–5, 10"
+        },
+        "excerpt": {
+          "file": "excerpts/replicability-2018-excerpt.txt",
+          "kind": "source excerpt; layout/whitespace normalized, watermark lines removed, Symbol-font glyphs transcribed",
+          "pages": "2"
+        }
+      }
+    },
+    "adafilter": {
+      "title": "AdaFilter and partial-conjunction hypotheses",
+      "citation": "Wang et al. (2022). Detecting multiple replicating signals using adaptive filtering procedures. Annals of Statistics. doi:10.1214/21-AOS2139.",
+      "source_file": "Wang-DETECTINGMULTIPLEREPLICATING-2022.pdf",
+      "source_sha256": "44c1c7a4459ffdd2d2affc4ef895b6469a9a5f2ad71db89b973d5d6229395b99",
+      "sections": {
+        "overview": {
+          "file": "cards/adafilter.md",
+          "kind": "curated summary",
+          "pages": "2, 9–11"
+        },
+        "excerpt": {
+          "file": "excerpts/adafilter-excerpt.txt",
+          "kind": "source excerpt; layout/whitespace normalized, watermark lines removed, Symbol-font glyphs transcribed",
+          "pages": "2"
+        }
+      }
+    },
+    "cofilter": {
+      "title": "CoFilter: conditional testing after filtering",
+      "citation": "Dickhaus et al. (2026). A procedure for multiple testing of partial conjunction hypotheses based on a hazard rate inequality. Bernoulli. doi:10.3150/25-BEJ1858.",
+      "source_file": "CoFilter.pdf",
+      "source_sha256": "7e5d2d3cc5e83a5160baca4ff89134782dd5cddec81bb90873e22608666bc6bf",
+      "sections": {
+        "overview": {
+          "file": "cards/cofilter.md",
+          "kind": "curated summary",
+          "pages": "1–2"
+        },
+        "excerpt": {
+          "file": "excerpts/cofilter-excerpt.txt",
+          "kind": "source excerpt; layout/whitespace normalized, watermark lines removed, Symbol-font glyphs transcribed",
+          "pages": "1"
+        }
+      }
+    },
+    "replicability-review": {
+      "title": "Orientation to replicability analysis",
+      "citation": "Bogomolov and Heller (2023). Replicability Across Multiple Studies. Statistical Science. doi:10.1214/23-STS892.",
+      "source_file": "Stat_Science.pdf",
+      "source_sha256": "eb4d7f6102dea0d03451b58381d7a785c3044411a4d00f3f14be30901d85ccc6",
+      "sections": {
+        "overview": {
+          "file": "cards/replicability-review.md",
+          "kind": "curated summary",
+          "pages": "1–2, 12"
+        },
+        "excerpt": {
+          "file": "excerpts/replicability-review-excerpt.txt",
+          "kind": "source excerpt; layout/whitespace normalized, watermark lines removed, Symbol-font glyphs transcribed",
+          "pages": "1"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+source("R/bootstrap.R")
+args <- commandArgs(trailingOnly = TRUE)
+directory <- cli_value(args, "--run-dir")
+if (is.null(directory)) stop("Provide --run-dir")
+render_pilot_report(directory)

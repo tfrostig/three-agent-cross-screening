@@ -1,0 +1,38 @@
+seed: 20261016
+alpha: 0.05
+iterations_per_scenario: 1
+additional_validation_draws: 0
+reference_pack: references/agent-pack
+baseline_fdr_methods: [BH, BY]
+measurements: [20, 100, 1000]
+power_targets: [0.2, 0.6]
+delta: 1
+tau_squared: 1
+state_probabilities:
+  '000': 0.60
+  '001': 0.05
+  '010': 0.05
+  '011': 0.05
+  '100': 0.05
+  '101': 0.05
+  '110': 0.05
+  '111': 0.10
+max_n: 100000
+max_dataset_cells: 20000000
+openai:
+  model: gpt-6.1-sol
+  max_output_tokens: 8192
+  request_limit: 16
+  api_timeout_seconds: 120
+  transient_retries: 2
+agent:
+  max_r_executions: 12
+  max_contract_repairs: 2
+  tool_calls_limit: 32
+  max_tool_output_bytes: 32768
+sandbox:
+  image: cross-screening-r:4.6.0
+  timeout_seconds: 60
+  memory: 2g
+  cpus: 1
+results_directory: results

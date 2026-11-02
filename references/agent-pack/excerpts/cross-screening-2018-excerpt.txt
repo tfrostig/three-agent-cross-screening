@@ -1,0 +1,1 @@
+Cross-screening splits the data inhalf at random, uses the first half to plan a study carried out on the second half, then uses the second half to plan a study carried out on the first half,and reports the more favorable conclusions of the two studies correcting using the Bonferroni inequality forhaving done two studies.

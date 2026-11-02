@@ -1,0 +1,23 @@
+[project]
+name = "three-agent-cross-screening"
+version = "0.1.0"
+description = "PydanticAI agents for an R cross-screening experiment"
+requires-python = ">=3.12,<3.14"
+dynamic = ["dependencies"]
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.14"
+pydantic-ai-slim = {version = ">=1.0,<3.0", extras = ["openai"]}
+pydantic = ">=2.10,<3.0"
+openai = ">=2.0,<3.0"
+httpx = ">=0.28,<1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8,<10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+pythonpath = ["."]
