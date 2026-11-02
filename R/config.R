@@ -1,14 +1,29 @@
+#' Host dependency checks, fixed scenario-grid validation, and live credential-availability
+#'   checks.
+
+#' List the host-side R dependencies
+#'
+#' @return Character vector of package names.
 r_packages <- function() {
   c("renv", "jsonlite", "yaml", "data.table", "digest", "processx", "ggplot2",
     "testthat", "knitr", "rmarkdown", "matrixStats", "coin", "boot")
 }
 
+#' Read and validate a pilot YAML configuration
+#'
+#' @param path Input or destination filesystem path, as indicated in the description.
+#' @return Validated configuration list; invalid settings raise an error.
 load_config <- function(path) {
   config <- yaml::read_yaml(path)
   validate_config(config)
   config
 }
 
+#' Enforce the fixed pilot grid and one-iteration contract
+#'
+#' @param config Validated configuration list from load_config(), unless a SessionConfig is
+#'   explicitly noted.
+#' @return The configuration invisibly; stops on unsupported settings.
 validate_config <- function(config) {
   stopifnot(config$iterations_per_scenario == 1,
             config$additional_validation_draws == 0,
@@ -24,8 +39,19 @@ validate_config <- function(config) {
   invisible(config)
 }
 
+#' Substitute a default only for NULL
+#'
+#' @param value Any R value; only NULL triggers the fallback.
+#' @param default Fallback returned when the requested value is absent.
+#' @return The supplied value or the default; NA and empty vectors are preserved.
 `%||%` <- function(value, default) if (is.null(value)) default else value
 
+#' Expand the permitted eight scenarios and shared dataset IDs
+#'
+#' @param config Validated configuration list from load_config(), unless a SessionConfig is
+#'   explicitly noted.
+#' @return Data frame with m, c, criterion, id, and data_id. Matching m=100 criteria share
+#'   data_id.
 scenario_grid <- function(config) {
   grid <- expand.grid(m = as.integer(config$measurements),
                       c = as.numeric(config$power_targets),
@@ -39,12 +65,21 @@ scenario_grid <- function(config) {
   grid
 }
 
+#' Check dependencies without installing packages
+#'
+#' @param packages Character vector of required R package names.
+#' @return NULL invisibly; stops with missing package names.
 require_packages <- function(packages) {
   missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]
   if (length(missing)) stop("Missing R packages: ", paste(missing, collapse = ", "),
                             ". Run Rscript --vanilla scripts/setup.R")
 }
 
+#' Check explicit model selection and private credential availability
+#'
+#' @param config Validated configuration list from load_config(), unless a SessionConfig is
+#'   explicitly noted.
+#' @return No scientific result; stops before agents start if configuration is unavailable.
 validate_live_config <- function(config) {
   if (is.null(config$openai$model) || !nzchar(trimws(config$openai$model))) {
     stop("An explicit openai.model is required")

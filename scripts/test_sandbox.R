@@ -1,3 +1,6 @@
+#' Run Docker mount, credential-environment, network and timeout canaries; write
+#'   machine-specific isolation metadata. No model calls.
+
 source("R/bootstrap.R")
 config <- load_config("config/pilot.yml")
 config$sandbox$image <- docker_info(config$sandbox$image)

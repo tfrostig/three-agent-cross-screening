@@ -1,4 +1,8 @@
-"""Verified, session-local snapshots of curated methodological references."""
+"""Verify and snapshot curated methods references independently per session.
+
+Only catalog-approved payloads are readable. The common brief is injected into
+shared instructions; optional sections are retrieved by ID with citations and
+size limits. This interface cannot read original PDFs or arbitrary host paths."""
 
 import hashlib
 import json
@@ -9,11 +13,17 @@ from agents.models import ToolResult
 
 
 def approved_file(root: Path, name: str) -> Path:
-    """Resolve a regular, unlinked file within the reference pack.
+    """Resolve one catalog-relative regular file inside the reference pack.
 
     Args:
-        root: Reference pack directory.
-        name: Catalog-relative filename.
+        root: Trusted reference-pack directory.
+        name: Approved relative filename, without absolute paths or traversal.
+
+    Returns:
+        Existing regular Path after containment and link checks.
+
+    Raises:
+        ValueError: The reference is missing, linked, or outside the library.
     """
     relative = Path(name)
     if relative.is_absolute() or ".." in relative.parts:
@@ -29,11 +39,15 @@ def approved_file(root: Path, name: str) -> Path:
 
 
 def snapshot_contents(root: Path, catalog: dict) -> dict[str, str]:
-    """Read and verify only the files explicitly approved by the catalog.
+    """Read only catalog-approved payloads and verify their byte hashes.
 
     Args:
-        root: Reference pack directory.
-        catalog: Versioned catalog with approved files and their hashes.
+        root: Reference-pack directory.
+        catalog: Versioned catalog containing payload digests and allowed sections.
+
+    Returns:
+        UTF-8 text mapping owned by this session; at most 16 KiB for the brief
+        and 6 KiB per other payload. Rejects stale or unapproved content.
     """
     contents = {}
     for name, expected in catalog["files"].items():
@@ -56,7 +70,16 @@ def snapshot_contents(root: Path, catalog: dict) -> dict[str, str]:
 
 @dataclass(frozen=True)
 class ReferenceLibrary:
-    """Hold verified reference text independently for a single agent session."""
+    """Session-local verified snapshot of approved methodological context.
+
+    Attributes:
+        digest: SHA-256 of the original catalog bytes.
+        catalog: Allowed references, section locators, citations, and payload hashes.
+        contents: Verified UTF-8 payloads, loaded once for this session.
+
+    Frozen dataclass fields prevent reassignment; nested dictionaries are treated
+    as controller-owned values and are never passed to tools for modification.
+    """
 
     digest: str
     catalog: dict
@@ -64,11 +87,17 @@ class ReferenceLibrary:
 
     @classmethod
     def load(cls, root: Path, expected_digest: str | None = None):
-        """Snapshot an approved pack and optionally enforce its recorded identity.
+        """Snapshot a verified library before model access.
 
         Args:
-            root: Reference pack directory.
-            expected_digest: SHA-256 catalog identity from the R controller.
+            root: Reference-pack directory containing catalog.json.
+            expected_digest: Optional catalog SHA-256 locked by the R controller.
+
+        Returns:
+            New ReferenceLibrary containing verified text and catalog metadata.
+
+        Raises:
+            ValueError: The catalog/version/digest or an approved payload is invalid.
         """
         path = approved_file(root, "catalog.json")
         if path.stat().st_size > 65536:
@@ -86,7 +115,12 @@ class ReferenceLibrary:
         return cls(digest, catalog, contents)
 
     def prompt_context(self) -> str:
-        """Return the common brief and catalog without loading all paper sections."""
+        """Compose the common brief and available section IDs for shared instructions.
+
+        Returns:
+            Prompt text with reference_brief delimiters. Full optional excerpts
+            are not injected; the model requests those through read_reference.
+        """
         entries = []
         for reference_id, entry in self.catalog["references"].items():
             sections = ", ".join(entry["sections"])
@@ -96,11 +130,17 @@ class ReferenceLibrary:
                 "REFERENCE CATALOG\n" + "\n".join(entries))
 
     def read(self, reference_id: str, section_id: str = "overview") -> ToolResult:
-        """Return one bounded section with attribution, never an arbitrary file.
+        """Return one approved section with attribution and PDF page locators.
 
         Args:
-            reference_id: Approved reference ID.
-            section_id: Approved section ID within that reference.
+            reference_id: Allowlisted library ID from the common catalog.
+            section_id: Named section, defaulting to overview.
+
+        Returns:
+            ToolResult whose stdout is the cited section, bounded to 8 KiB total.
+
+        Raises:
+            ValueError: IDs are unknown or the response exceeds its size limit.
         """
         entry = self.catalog["references"].get(reference_id)
         if entry is None or section_id not in entry["sections"]:
@@ -115,6 +155,11 @@ class ReferenceLibrary:
         return ToolResult(status="ok", stdout=text)
 
     def audit_record(self) -> dict:
-        """Record the exact injected brief and the identity of available sections."""
+        """Describe exactly which reference context was available in this session.
+
+        Returns:
+            Dictionary containing the catalog digest, full catalog, and injected
+            brief. Requested section content is recorded in conversation audits.
+        """
         return {"digest": self.digest, "catalog": self.catalog,
                 "brief": self.contents[self.catalog["brief_file"]]}

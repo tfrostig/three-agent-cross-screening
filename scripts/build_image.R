@@ -1,3 +1,6 @@
+#' Build the pinned restricted R image and record its local image identity. Requires Docker
+#'   and build-time network access; no model calls.
+
 source("R/bootstrap.R")
 config <- load_config("config/pilot.yml")
 result <- processx::run("docker", c("build", "-t", config$sandbox$image,

@@ -1,9 +1,24 @@
+#' Create source-only sessions, verify frozen artifacts, and bind cached designs to exact
+#'   input/source identities.
+
+#' Serialize one observation pair for a session-specific mount
+#'
+#' @param pair List with exposed and unexposed numeric observation matrices.
+#' @param directory Filesystem directory holding the relevant inputs or outputs.
+#' @return Writes exposed.rds and unexposed.rds in directory; contains observations, never
+#'   truth.
 write_pair <- function(pair, directory) {
   ensure_dir(directory)
   saveRDS(pair$exposed, file.path(directory, "exposed.rds"), version = 3)
   saveRDS(pair$unexposed, file.path(directory, "unexposed.rds"), version = 3)
 }
 
+#' Prepare deterministic R artifacts for an offline provider session
+#'
+#' @param pair List with exposed and unexposed numeric observation matrices.
+#' @param workspace Session-specific mutable artifact directory.
+#' @param criterion Character scalar FWER or FDR.
+#' @return Writes three work artifacts, explicitly labeled fixtures; does not call a model.
 fixture_design <- function(pair, workspace, criterion) {
   differences <- colMeans(pair$exposed) - colMeans(pair$unexposed)
   selected <- names(differences)[abs(differences) > 0.25]
@@ -24,6 +39,16 @@ fixture_design <- function(pair, workspace, criterion) {
              file.path(workspace, "report.md"))
 }
 
+#' Bind cached designs to observations and execution identity
+#'
+#' @param config Validated configuration list from load_config(), unless a SessionConfig is
+#'   explicitly noted.
+#' @param scenario One-row scenario record containing id, data_id, m, c, and criterion.
+#' @param input_dir Directory containing only exposed.rds and unexposed.rds for this subgroup.
+#' @param mode Execution mode or live/offline discriminator used by the caller.
+#' @param image_id Resolved Docker image SHA-256 identifier.
+#' @return Hash of input bytes, criterion, levels, budgets, source, prompts, references, and
+#'   image.
 design_cache_key <- function(config, scenario, input_dir, mode, image_id) {
   prompt_files <- list.files(file.path(project_root, "prompts"), full.names = TRUE)
   object_hash(list(exposed = file_hash(file.path(input_dir, "exposed.rds")),
@@ -35,6 +60,10 @@ design_cache_key <- function(config, scenario, input_dir, mode, image_id) {
                    source = source_fingerprint(), references = reference_pack_record(config)))
 }
 
+#' Fingerprint implementation files used in strict resume checks
+#'
+#' @return Hash covering R/Python scripts, fixtures, Docker source, prompts, and lockfiles.
+#'   Documentation edits inside those source files also change it.
 source_fingerprint <- function() {
   directories <- c("agents", "R", "scripts", "fixtures", "docker")
   files <- unlist(lapply(directories, function(x) {
@@ -45,6 +74,10 @@ source_fingerprint <- function() {
   object_hash(vapply(sort(files), file_hash, character(1)))
 }
 
+#' Verify each frozen artifact against its recorded content hash
+#'
+#' @param directory Filesystem directory holding the relevant inputs or outputs.
+#' @return TRUE invisibly; stops on a missing, unsafe, or changed artifact.
 verify_frozen <- function(directory) {
   record <- read_json(file.path(directory, "frozen.json"))
   for (name in names(record$hashes)) {
@@ -54,6 +87,16 @@ verify_frozen <- function(directory) {
   invisible(TRUE)
 }
 
+#' Build host-private configuration for exactly one agent session
+#'
+#' @param config Validated configuration list from load_config(), unless a SessionConfig is
+#'   explicitly noted.
+#' @param scenario One-row scenario record containing id, data_id, m, c, and criterion.
+#' @param directory Filesystem directory holding the relevant inputs or outputs.
+#' @param pair List with exposed and unexposed numeric observation matrices.
+#' @param session_id Opaque identifier for a single source-agent session.
+#' @return List consumed by agents.session; includes source paths and task dimensions, not
+#'   generator truth.
 session_manifest <- function(config, scenario, directory, pair, session_id) {
   list(session_id = session_id, m = ncol(pair$exposed), n = nrow(pair$exposed),
        criterion = scenario$criterion, alpha = config$alpha / 3, model = config$openai$model,
@@ -63,6 +106,17 @@ session_manifest <- function(config, scenario, directory, pair, session_id) {
        reference_pack = reference_pack_path(config), reference_digest = reference_pack_digest(config))
 }
 
+#' Reuse a verified design or launch one isolated PydanticAI session
+#'
+#' @param config Validated configuration list from load_config(), unless a SessionConfig is
+#'   explicitly noted.
+#' @param scenario One-row scenario record containing id, data_id, m, c, and criterion.
+#' @param pair List with exposed and unexposed numeric observation matrices.
+#' @param directory Filesystem directory holding the relevant inputs or outputs.
+#' @param offline Logical; use deterministic fixture artifacts/provider instead of OpenAI.
+#' @param image_id Resolved Docker image SHA-256 identifier.
+#' @return Session summary list. Writes source inputs, controller manifest, audit logs, and
+#'   successful cache metadata; never overwrites an indexed frozen design.
 run_design <- function(config, scenario, pair, directory, offline, image_id) {
   directory <- ensure_dir(directory)
   workspace <- ensure_dir(file.path(directory, "work"))

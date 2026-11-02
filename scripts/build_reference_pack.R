@@ -1,13 +1,37 @@
+#' Trusted-host reference build; requires separately obtained PDFs and pdftotext. Rewrites
+#'   catalog/excerpts and changes the recorded library digest.
+
 source("R/bootstrap.R")
 
+#' Describe the provenance and permitted sections of one reference
+#'
+#' @param id Stable reference or section identifier.
+#' @param source Source PDF filename relative to references/.
+#' @param citation Bibliographic citation text.
+#' @param pages Human-readable PDF page locator.
+#' @param excerpts List of explicitly approved excerpt specifications.
+#' @return List used only by the trusted-host library build script.
 reference_entry <- function(id, source, citation, pages, excerpts = list()) {
   list(id = id, source_file = source, citation = citation, pages = pages, excerpts = excerpts)
 }
 
+#' Specify PDF pages, text boundaries, and optional crop for an excerpt
+#'
+#' @param id Stable reference or section identifier.
+#' @param first First PDF page to extract (one-based).
+#' @param last Last PDF page to extract (one-based).
+#' @param start Literal opening text marker.
+#' @param finish Literal closing text marker, included in the returned excerpt.
+#' @param crop Optional PDF crop coordinates passed to pdftotext (-x, -y, -W, -H).
+#' @return Named extraction specification list.
 excerpt_spec <- function(id, first, last, start, finish, crop = NULL) {
   list(id = id, first = first, last = last, start = start, finish = finish, crop = crop)
 }
 
+#' Declare the seven approved methodological references
+#'
+#' @return List of citation/source/extraction specifications, including a summary-only
+#'   proposal entry.
 reference_entries <- function() {
   two_team <- paste0("Exploration  Confirmation  and Replication in the Same Observational Study  ",
     "A Two Team Cross-Screening Approach to Studying the Effect of Unwanted Pre.pdf")
@@ -37,6 +61,12 @@ reference_entries <- function() {
   )
 }
 
+#' Extract one bounded PDF passage on the trusted host
+#'
+#' @param source Full source PDF path; read only by the trusted-host extraction process.
+#' @param spec Named excerpt specification from excerpt_spec().
+#' @return Normalized text between explicit markers; requires pdftotext and stops on missing
+#'   boundaries.
 extract_reference_excerpt <- function(source, spec) {
   crop <- if (is.null(spec$crop)) character() else as.vector(rbind(c("-x", "-y", "-W", "-H"), spec$crop))
   result <- processx::run("pdftotext", c("-layout", "-f", spec$first, "-l", spec$last, crop, source, "-"))
@@ -53,6 +83,12 @@ extract_reference_excerpt <- function(source, spec) {
   substring(text, 1L, finish + nchar(spec$finish) - 1L)
 }
 
+#' Build approved excerpt files and provenance for one reference
+#'
+#' @param entry One reference provenance/extraction record.
+#' @param root Trusted containing directory used for path validation.
+#' @return Catalog entry with citation, source PDF hash, and named sections; writes extracted
+#'   text only.
 build_reference_entry <- function(entry, root) {
   source <- file.path(project_root, "references", entry$source_file)
   card <- paste0("cards/", entry$id, ".md")
@@ -71,6 +107,10 @@ build_reference_entry <- function(entry, root) {
     source_sha256 = file_hash(source), sections = sections)
 }
 
+#' Rebuild and hash the curated pack from separately available PDFs
+#'
+#' @return Writes catalog.json and approved excerpts; checks size limits and reports the
+#'   verified digest.
 build_reference_pack <- function() {
   root <- ensure_dir(file.path(project_root, "references/agent-pack"))
   entries <- reference_entries()

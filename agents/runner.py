@@ -1,4 +1,8 @@
-"""Delegate R execution to the trusted container wrapper."""
+"""Bridge source-only R tools to the trusted Docker wrapper.
+
+Every call records its request and seed, saves submitted exploration source,
+and invokes only scripts/agent_tool.R under a credential-free environment.
+The wrapper then stages allowlisted files into a fresh restricted container."""
 
 import json
 import os
@@ -11,7 +15,15 @@ from agents.models import SessionConfig, ToolResult
 
 
 def clean_environment(project_root: Path, home: Path) -> dict[str, str]:
-    """Construct an environment without API keys or inherited credentials."""
+    """Build the credential-free environment for the trusted R wrapper.
+
+    Args:
+        project_root: Host project root passed through CROSS_SCREENING_ROOT.
+        home: Temporary wrapper home, replacing the user's inherited HOME.
+
+    Returns:
+        Explicit environment allowlist; OPENAI_API_KEY and other secrets are absent.
+    """
     allowed = {"PATH", "LANG", "TMPDIR", "R_HOME", "R_LIBS", "R_LIBS_USER", "R_LIBS_SITE"}
     environment = {key: value for key, value in os.environ.items() if key in allowed}
     environment.update(HOME=str(home), CROSS_SCREENING_ROOT=str(project_root))
@@ -19,11 +31,13 @@ def clean_environment(project_root: Path, home: Path) -> dict[str, str]:
 
 
 def save_exploration_code(request_file: Path, code: str) -> None:
-    """Save submitted R source outside the agent-visible workspace.
+    """Archive exact submitted R source before any container execution.
 
     Args:
         request_file: Controller-owned audit request path.
-        code: Exact R source submitted through the exploration tool.
+        code: Submitted exploration source, encoded as UTF-8 without alteration.
+
+    Writes audit/exploration/<request-stem>.R, including calls that later fail.
     """
     directory = request_file.parent / "exploration"
     directory.mkdir(parents=True, exist_ok=True)
@@ -31,14 +45,35 @@ def save_exploration_code(request_file: Path, code: str) -> None:
 
 
 class RRunner:
-    """Execute only the fixed trusted wrapper with session-bound paths."""
+    """Session-bound bridge to scripts/agent_tool.R and Docker execution.
+
+    Attributes:
+        config: Source-only SessionConfig.
+        calls: Numbered audit sequence covering exploration and contract checks.
+
+    Generated R never runs directly in this Python process or in a host R session.
+    """
 
     def __init__(self, config: SessionConfig):
+        """Bind wrapper paths and the audit sequence to one source session.
+
+        Args:
+            config: SessionConfig whose input/work/audit paths never change here.
+        """
         self.config = config
         self.calls = 0
 
     def execute(self, mode: str, code: str = "") -> ToolResult:
-        """Run a container and return a bounded typed result."""
+        """Delegate one explore/check request to the trusted Docker wrapper.
+
+        Args:
+            mode: explore or check; target evaluation is controlled separately by R.
+            code: R source for explore; ignored for artifact checking.
+
+        Returns:
+            Bounded ToolResult. Writes numbered request/result audits and records
+            an independent execution seed; each call starts a fresh container.
+        """
         self.calls += 1
         config = self.config
         config.audit_dir.mkdir(parents=True, exist_ok=True)

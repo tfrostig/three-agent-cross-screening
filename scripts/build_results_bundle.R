@@ -1,6 +1,14 @@
+#' CLI: --output-dir DIR. Package the original/revised completed runs with an allowlist and
+#'   integrity checks; no model calls or agent-code execution.
+
 source("R/bootstrap.R")
 source("scripts/sharing_helpers.R")
 
+#' Select reviewable results through an explicit path allowlist
+#'
+#' @param directory Filesystem directory holding the relevant inputs or outputs.
+#' @return Sorted relative filenames; excludes input, private, work, controller logs, and
+#'   caches.
 bundle_run_files <- function(directory) {
   top <- c("report.html", "scores.csv", "global-scores.csv", "scenarios.csv", "planning.csv",
     "run.json", "completion.json", "usage.csv", "power.png", "agent-designs.csv",
@@ -16,6 +24,12 @@ bundle_run_files <- function(directory) {
   sort(paths[paths %in% top | grepl(frozen, paths) | agents | evaluation | design_status | retries])
 }
 
+#' Copy one completed live run into an export tree
+#'
+#' @param name Saved live-run folder name, relative to results/.
+#' @param output Destination directory or file, as indicated in the description.
+#' @return Manifest records for copied files; local paths may be sanitized except in immutable
+#'   artifacts.
 bundle_copy_run <- function(name, output) {
   directory <- file.path(project_root, "results", name)
   stopifnot(read_json(file.path(directory, "run.json"))$mode == "live",
@@ -31,6 +45,11 @@ bundle_copy_run <- function(name, output) {
   do.call(rbind, records)
 }
 
+#' Verify frozen hashes, exploration exports, and successful scores
+#'
+#' @param directory Filesystem directory holding the relevant inputs or outputs.
+#' @return No result value; stops unless the saved run has eight scenarios and 24 successful
+#'   designs.
 bundle_check_run <- function(directory) {
   scenarios <- read_csv(file.path(directory, "scenarios.csv"))
   stopifnot(nrow(scenarios) == 8L)
@@ -52,6 +71,10 @@ bundle_check_run <- function(directory) {
   stopifnot(all(scores$status == "ok"), sum(scores$method == "agent") == 24L)
 }
 
+#' Copy the methodology and approved reference context
+#'
+#' @param output Destination directory or file, as indicated in the description.
+#' @return Manifest records for methods documents, current prompts, and curated library files.
 bundle_extra_files <- function(output) {
   paths <- c("docs/isolation.md", "docs/prompt-revision.md", "docs/sharing.md",
     "prompts/system.txt", "prompts/developer.txt")
@@ -65,6 +88,10 @@ bundle_extra_files <- function(output) {
   do.call(rbind, records)
 }
 
+#' Write editorial descriptions linking two actual revised designs
+#'
+#' @param output Destination directory or file, as indicated in the description.
+#' @return Creates examples/README.md; agent explanations themselves remain in frozen reports.
 bundle_examples <- function(output) {
   lines <- c("# Two actual revised-agent analyses", "",
     "These notes are editorial summaries. Linked reports contain the agents' own explanations.", "",
@@ -79,6 +106,11 @@ bundle_examples <- function(output) {
   publication_write_text(paste(lines, collapse = "\n"), file.path(output, "examples/README.md"))
 }
 
+#' Render the reading guide and portable saved-results summary
+#'
+#' @param output Destination directory or file, as indicated in the description.
+#' @return Manifest rows for copied templates/tables; writes HTML and Markdown without
+#'   executing agent code.
 bundle_render <- function(output) {
   sources <- c("docs/results-bundle-README.md", "reports/shared-summary.Rmd",
     "results/live-revised-20261101/comparison.csv")
@@ -94,6 +126,12 @@ bundle_render <- function(output) {
   data.frame(path = targets, original = sources, disposition = actions)
 }
 
+#' Inventory every exported payload with size, hash, and provenance
+#'
+#' @param output Destination directory or file, as indicated in the description.
+#' @param records Data frame mapping exported paths to original paths and copy dispositions.
+#' @return Manifest data frame, also written to MANIFEST.csv; excludes the manifest's own
+#'   hash.
 bundle_manifest <- function(output, records) {
   paths <- sort(list.files(output, recursive = TRUE))
   original <- records$original[match(paths, records$path)]
@@ -107,6 +145,12 @@ bundle_manifest <- function(output, records) {
   rows
 }
 
+#' Check exported file integrity and absence of prohibited content
+#'
+#' @param output Destination directory or file, as indicated in the description.
+#' @param manifest Export inventory data frame containing paths and SHA-256 hashes.
+#' @return Stops on hash failures, common credential patterns, remaining local paths, or
+#'   invalid saved artifacts.
 bundle_verify_files <- function(output, manifest) {
   paths <- file.path(output, manifest$path)
   text <- !grepl("\\.png$", paths)
@@ -122,6 +166,11 @@ bundle_verify_files <- function(output, manifest) {
   }
 }
 
+#' Build and validate a shareable ZIP for the two completed runs
+#'
+#' @param output Destination directory or file, as indicated in the description.
+#' @return Creates output directory and adjacent .zip, refusing existing destinations.
+#'   Originals remain unchanged; requires both local live runs.
 build_results_bundle <- function(output) {
   if (file.exists(output) || file.exists(paste0(output, ".zip"))) stop("Export destination already exists")
   output <- ensure_dir(output)

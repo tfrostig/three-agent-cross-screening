@@ -1,5 +1,11 @@
+#' Build the original-run R Markdown note and supplement. Sourcing the file writes generated
+#'   deliverables; no model calls.
+
 source("analyses/build_research_note.R")
 
+#' Define the original-run R Markdown document header
+#'
+#' @return YAML and setup chunk text tied to the legacy local report builders.
 rmarkdown_note_header <- function() {
   paste(c("---", "title: Can agents conduct a statistical analysis?",
     "subtitle: First simulation run — architecture, findings, and limitations",
@@ -19,6 +25,9 @@ rmarkdown_note_header <- function() {
     collapse = "\n")
 }
 
+#' Export the original prompt and example appendix as R Markdown
+#'
+#' @return Writes deliverables/agent-analysis-supplement.Rmd and returns its path.
 build_agent_supplement <- function() {
   header <- paste(c("---", "title: Supplement — prompts and agent outputs",
     "date: 17 October 2026", "output:", "  html_document:",
@@ -32,6 +41,9 @@ build_agent_supplement <- function() {
   output
 }
 
+#' Build the concise original-run R Markdown note and supplement
+#'
+#' @return Writes generated deliverables and literal prompt excerpts; no model calls.
 build_rmarkdown_note <- function() {
   body <- paste(readLines("docs/agent-analysis-research-note.md", warn = FALSE), collapse = "\n")
   body <- sub("(?s)^---\n.*?\n---\n", "", body, perl = TRUE)

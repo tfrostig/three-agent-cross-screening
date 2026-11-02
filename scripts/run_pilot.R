@@ -1,3 +1,6 @@
+#' CLI: --config FILE, --scenario ID, --run-dir DIR, --offline, --dry-run, --resume. Run from
+#'   the project root; live mode makes paid model calls.
+
 source("R/bootstrap.R")
 args <- commandArgs(trailingOnly = TRUE)
 config <- load_config(cli_value(args, "--config", "config/pilot.yml"))

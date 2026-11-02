@@ -1,5 +1,17 @@
+#' Historical original-run comparison. Sourcing this file runs the comparison and writes
+#'   separate outputs; it does not start agents.
+
 source("R/bootstrap.R")
 
+#' Construct a source Welch shortlist with an inherited family size
+#'
+#' @param pair List with exposed and unexposed numeric observation matrices.
+#' @param reference Original frozen hypothesis table whose coordinate count and direction
+#'   policy are inherited.
+#' @param ranking p_value for two-sided Welch p ranking, otherwise absolute t-statistic
+#'   ranking.
+#' @return Hypothesis data frame using source signs, or both directions when present in the
+#'   reference family.
 welch_screen <- function(pair, reference, ranking) {
   ids <- colnames(pair$exposed)
   fits <- lapply(ids, function(id) stats::t.test(pair$exposed[, id], pair$unexposed[, id]))
@@ -18,8 +30,21 @@ welch_screen <- function(pair, reference, ranking) {
   result[c("hypothesis_id", "measurement_id", "direction")]
 }
 
+#' Represent measurement-direction pairs independently of hypothesis IDs
+#'
+#' @param hypotheses Frozen table with hypothesis_id, measurement_id, and integer direction
+#'   (-1 or +1).
+#' @return Character vector used for family-overlap comparisons.
 family_keys <- function(hypotheses) paste(hypotheses$measurement_id, hypotheses$direction)
 
+#' Apply ordinary target Welch tests to a specified frozen family
+#'
+#' @param pair List with exposed and unexposed numeric observation matrices.
+#' @param hypotheses Frozen table with hypothesis_id, measurement_id, and integer direction
+#'   (-1 or +1).
+#' @param scenario One-row scenario record containing id, data_id, m, c, and criterion.
+#' @param alpha Family level used directly; callers supply config$alpha/3 for target testing.
+#' @return Result data frame using Holm for FWER and historical BY for FDR.
 welch_on_family <- function(pair, hypotheses, scenario, alpha) {
   p <- baseline_pvalues(pair$exposed, pair$unexposed, hypotheses)
   adjusted <- stats::p.adjust(p, method = if (scenario$criterion == "FWER") "holm" else "BY")
@@ -27,6 +52,15 @@ welch_on_family <- function(pair, hypotheses, scenario, alpha) {
              reject = adjusted <= alpha, adjusted_p_value = adjusted)
 }
 
+#' Reproduce the original saved full Welch baseline before comparison
+#'
+#' @param setting Trusted generated setting including observations, effects, and planning
+#'   metadata.
+#' @param scenario One-row scenario record containing id, data_id, m, c, and criterion.
+#' @param original Original saved score table used as a consistency reference.
+#' @param alpha Family level used directly; callers supply config$alpha/3 for target testing.
+#' @return Stops if any of three target metrics differs beyond tolerance; makes no model
+#'   calls.
 check_existing_baseline <- function(setting, scenario, original, alpha) {
   expected <- original[original$scenario == scenario$id & original$method == "welch", ]
   for (target in seq_len(3L)) {
@@ -39,6 +73,15 @@ check_existing_baseline <- function(setting, scenario, original, alpha) {
   }
 }
 
+#' Compare an original agent family with matched-size Welch screening
+#'
+#' @param setting Trusted generated setting including observations, effects, and planning
+#'   metadata.
+#' @param scenario One-row scenario record containing id, data_id, m, c, and criterion.
+#' @param source Source subgroup index (1, 2, or 3).
+#' @param context List with run, output, and alpha for the historical comparison.
+#' @return List of score and overlap tables; writes new comparison outputs and verifies
+#'   original frozen hashes.
 compare_design <- function(setting, scenario, source, context) {
   frozen <- file.path(context$run, "scenarios", scenario$id, paste0("agent-", source), "frozen")
   verify_frozen(frozen)
@@ -68,6 +111,10 @@ compare_design <- function(setting, scenario, source, context) {
   list(scores = do.call(rbind, rows), overlap = overlap)
 }
 
+#' Build the historical shortlist-versus-Welch comparison
+#'
+#' @return Writes results/welch-method-comparison, preserving results/live-first and using no
+#'   new scientific draws.
 run_comparison <- function() {
   run <- normalizePath("results/live-first", mustWork = TRUE)
   output <- ensure_dir("results/welch-method-comparison")

@@ -1,4 +1,8 @@
-"""Private runtime credential loading without shell evaluation or secret output."""
+"""Trusted-controller credential parsing and optional model-access checks.
+
+Uses an exported key first, otherwise the previously authorized private loader.
+Assignments are never shell-sourced, expanded, logged, or sent to R containers.
+Publication/documentation checks never call this loader."""
 
 import argparse
 import os
@@ -7,13 +11,17 @@ from pathlib import Path
 
 
 def read_api_key(project_root: Path) -> str:
-    """Return the exported key or the authorized local .env assignment.
+    """Load the runtime key without shell evaluation or secret output.
 
     Args:
-        project_root: Trusted project directory containing the optional .env.
+        project_root: Trusted project directory with an optional authorized .env.
 
     Returns:
-        The API key, kept in process memory rather than exported to tools.
+        Exported OPENAI_API_KEY when set, otherwise its literal .env assignment.
+        The value stays in controller memory and is never passed to R containers.
+
+    Raises:
+        ValueError: The assignment is missing, empty, or malformed.
     """
     exported = os.environ.get("OPENAI_API_KEY", "").strip()
     if exported:
@@ -31,7 +39,17 @@ def read_api_key(project_root: Path) -> str:
 
 
 def parse_key(value: str) -> str:
-    """Parse one literal assignment without expansion or executing commands."""
+    """Parse one literal key assignment without expansion or execution.
+
+    Args:
+        value: Right-hand side of an OPENAI_API_KEY assignment, with optional quotes.
+
+    Returns:
+        Exactly one nonempty literal token; shell substitutions remain literal.
+
+    Raises:
+        ValueError: Invalid quoting or multiple/empty tokens, with no secret echoed.
+    """
     try:
         parts = shlex.split(value, comments=True, posix=True)
     except ValueError:
@@ -42,7 +60,16 @@ def parse_key(value: str) -> str:
 
 
 def verify_model(project_root: Path, model: str) -> bool:
-    """Check model access without sending observations or printing API errors."""
+    """Check model availability through the trusted controller only.
+
+    Args:
+        project_root: Root used by the private credential loader.
+        model: Explicit provider model ID; never substituted automatically.
+
+    Returns:
+        Boolean success; prints only model identity or error class/HTTP status.
+        This uses the models endpoint outside the design-session transport.
+    """
     from openai import OpenAI
 
     try:
@@ -57,7 +84,11 @@ def verify_model(project_root: Path, model: str) -> bool:
 
 
 def main():
-    """Check availability or model access while never emitting a key value."""
+    """Check runtime credential availability or explicit model access.
+
+    --check only checks key availability. --verify-model MODEL makes a provider
+    model-access request without sending observations or printing the credential.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--verify-model")

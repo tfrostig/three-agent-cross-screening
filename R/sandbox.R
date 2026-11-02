@@ -1,3 +1,10 @@
+#' Trusted Docker wrapper for untrusted R; only explicit source/target inputs and staged
+#'   artifacts cross the container boundary.
+
+#' Resolve a locally available Docker image to its immutable ID
+#'
+#' @param image Docker image tag or immutable image identifier.
+#' @return Image SHA-256 identifier; stops if Docker cannot inspect the image.
 docker_info <- function(image) {
   result <- processx::run("docker", c("image", "inspect", image), error_on_status = FALSE)
   if (result$status != 0) stop("Docker image unavailable; run scripts/build_image.R")
@@ -5,6 +12,12 @@ docker_info <- function(image) {
   info$Id
 }
 
+#' Build a validated Docker bind-mount argument
+#'
+#' @param source Existing host directory to bind into the container.
+#' @param target Absolute container mount path.
+#' @param readonly Logical; append Docker's read-only mount option when TRUE.
+#' @return Two CLI arguments; rejects source paths containing commas.
 mount_arg <- function(source, target, readonly = TRUE) {
   source <- normalizePath(source, mustWork = TRUE)
   if (grepl(",", source, fixed = TRUE)) stop("Mount paths cannot contain commas")
@@ -12,6 +25,15 @@ mount_arg <- function(source, target, readonly = TRUE) {
                         if (readonly) ",readonly" else ""))
 }
 
+#' Construct the restricted R-container invocation
+#'
+#' @param request Trusted request list with mode, input_dir, workspace, alpha, execution_seed,
+#'   and sandbox settings.
+#' @param stage Temporary directory containing only code or staged analysis artifacts.
+#' @param output Destination directory or file, as indicated in the description.
+#' @param name Unique Docker container name for this execution.
+#' @return Character vector of Docker arguments with mounts, resource limits, no network, and
+#'   a non-root user.
 sandbox_args <- function(request, stage, output, name) {
   common <- c("run", "--rm", "--name", name, "--network=none", "--read-only",
               "--cap-drop=ALL", "--security-opt=no-new-privileges", "--pids-limit=128",
@@ -26,6 +48,13 @@ sandbox_args <- function(request, stage, output, name) {
     as.character(request$execution_seed))
 }
 
+#' Stage exploration code or the two executable design files
+#'
+#' @param request Trusted request list with mode, input_dir, workspace, alpha, execution_seed,
+#'   and sandbox settings.
+#' @param stage Temporary directory containing only code or staged analysis artifacts.
+#' @return Writes read-only files in stage; report text and host-private files are never
+#'   staged.
 prepare_stage <- function(request, stage) {
   if (request$mode == "explore") {
     writeLines(request$code, file.path(stage, "code.R"), useBytes = TRUE)
@@ -38,6 +67,11 @@ prepare_stage <- function(request, stage) {
   Sys.chmod(list.files(stage, full.names = TRUE), "0444")
 }
 
+#' Read at most a fixed number of captured output bytes
+#'
+#' @param path Input or destination filesystem path, as indicated in the description.
+#' @param limit Maximum number of output bytes to read.
+#' @return Character output, or an empty string for a missing file.
 bounded_text <- function(path, limit) {
   if (!file.exists(path)) return("")
   connection <- file(path, "rb")
@@ -45,6 +79,14 @@ bounded_text <- function(path, limit) {
   rawToChar(readBin(connection, "raw", n = limit), multiple = FALSE)
 }
 
+#' Run Docker with wall-time and output-volume safeguards
+#'
+#' @param args Docker CLI arguments from sandbox_args().
+#' @param timeout Maximum permitted wall-clock seconds.
+#' @param directory Filesystem directory holding the relevant inputs or outputs.
+#' @param name Unique container name used for forced removal at resource limits.
+#' @return List containing exit_code, timed_out, bounded stdout/stderr, and truncated.
+#'   timed_out also marks the combined-output ceiling.
 run_container <- function(args, timeout, directory, name) {
   stdout <- file.path(directory, "stdout.log")
   stderr <- file.path(directory, "stderr.log")
@@ -68,6 +110,12 @@ run_container <- function(args, timeout, directory, name) {
        truncated = any(file.info(c(stdout, stderr))$size > 32768, na.rm = TRUE))
 }
 
+#' Stage, execute, and validate one untrusted R request
+#'
+#' @param request Trusted request list with mode, input_dir, workspace, alpha, execution_seed,
+#'   and sandbox settings.
+#' @return Bounded execution metadata; optionally publishes a validated result CSV. Temporary
+#'   stage/output directories are removed on exit.
 execute_sandbox <- function(request) {
   stage <- ensure_dir(tempfile("stage-"))
   output <- ensure_dir(tempfile("output-"))

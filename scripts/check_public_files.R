@@ -1,6 +1,13 @@
+#' Inspect staged Git blobs, not just working-tree files. Requires a populated index; prints
+#'   filenames only when a check fails.
+
 source("R/bootstrap.R")
 source("scripts/sharing_helpers.R")
 
+#' Inspect the actual Git index before publishing source
+#'
+#' @return Stops on prohibited paths, unusual modes, oversized content or credential patterns;
+#'   never opens .env.
 check_staged_public_files <- function() {
   paths <- system2("git", c("diff", "--cached", "--name-only", "--diff-filter=ACMRT"), stdout = TRUE)
   if (!is.null(attr(paths, "status"))) stop("Could not inspect the Git index")

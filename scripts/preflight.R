@@ -1,3 +1,6 @@
+#' CLI: --config FILE and --offline. Check dependencies, Pandoc, reference digest, Docker
+#'   image, and (unless offline) private credential availability.
+
 source("R/bootstrap.R")
 args <- commandArgs(trailingOnly = TRUE)
 config <- load_config(cli_value(args, "--config", "config/pilot.yml"))

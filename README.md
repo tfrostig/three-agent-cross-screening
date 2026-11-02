@@ -5,6 +5,28 @@ Python implements isolated PydanticAI design sessions. The first run covers all
 eight scenarios once: 24 agent sessions, one transfer cycle per scenario, and
 **zero additional validation draws**.
 
+## Documentation
+
+For a first code review, start with the [developer walkthrough](docs/developer-guide.md).
+It follows one setting from simulation through agent design, freezing, transfer,
+and scoring, with source links and an executable R-only example.
+
+| Guide | What it explains |
+|:---|:---|
+| [Developer walkthrough](docs/developer-guide.md) | Call sequence, objects, ownership boundaries, failure handling, and where to make changes. |
+| [Agent and artifact contracts](docs/agent-api.md) | PydanticAI architecture, each tool, session state, prompts, CSV schemas, and freeze lifecycle. |
+| [Configuration and commands](docs/configuration.md) | Every YAML field, CLI option, required inputs, outputs, and operational limitations. |
+| [R function reference](docs/r-api.md) | Function inputs, returned objects, filesystem effects, and failure behavior. |
+| [Python API reference](docs/python-api.md) | Google-style module, class, and function documentation for the agent controller. |
+| [Isolation](docs/isolation.md) | Container mounts, credential boundaries, and audit checks. |
+| [Sharing](docs/sharing.md) | Public repository exclusions and validated results packaging. |
+
+R functions carry roxygen-style documentation directly above their definitions;
+the project is a collection of sourced scripts, so roxygen2 is not required.
+Python maintainer APIs use Google-style docstrings. The nested agent-tool
+descriptions are also part of the actual experimental prompts: changing them
+changes what the model receives.
+
 ## Repository map
 
 | Directory | Contents |
@@ -118,13 +140,17 @@ the truth, generator code, planning parameters, and other agents' histories are
 not included.
 
 ```sh
-Rscript --vanilla scripts/run_pilot.R --resume --run-dir results/live-first
-Rscript --vanilla scripts/render_report.R --run-dir results/live-first
+Rscript --vanilla scripts/run_pilot.R --resume --run-dir results/my-live-run
+Rscript --vanilla scripts/render_report.R --run-dir results/my-live-run
 ```
 
 Resume requires the same config, implementation, mode, prompts, and image digest.
 Valid frozen designs are reused. Failed sessions can be retried; completed
 frozen designs are never overwritten. Use a new run directory for changed inputs.
+The implementation fingerprint hashes source bytes, including source comments
+and docstrings. Consequently this documentation update also changes resume/cache
+identity: inspect historical results as saved, or use their original code checkout
+when resuming them. No historical artifacts or scores were modified.
 
 To inspect one setting, add e.g. `--scenario fwer_m20_c20`. The default selects
 all eight. `--config <file>` selects another config while preserving the

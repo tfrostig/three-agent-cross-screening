@@ -1,5 +1,13 @@
+#' CLI: --original-dir DIR and --run-dir DIR. Build matched-data comparisons using saved truth
+#'   and frozen artifacts, without agent calls.
+
 source("R/bootstrap.R")
 
+#' Count actual exploratory and reference calls in one saved history
+#'
+#' @param directory Filesystem directory holding the relevant inputs or outputs.
+#' @return List with exploration/reference counts and requested section IDs; missing histories
+#'   produce NA.
 revised_tool_usage <- function(directory) {
   path <- file.path(directory, "audit/messages.json")
   if (!file.exists(path)) return(list(explorations = NA_integer_, references = NA_integer_, ids = ""))
@@ -15,6 +23,13 @@ revised_tool_usage <- function(directory) {
   list(explorations = sum(names == "run_r"), references = length(refs), ids = paste(unique(ids), collapse = "; "))
 }
 
+#' Summarize one revised frozen design and target-direction coverage
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @param scenario One-row scenario record containing id, data_id, m, c, and criterion.
+#' @param source Source subgroup index (1, 2, or 3).
+#' @return One-row data frame with methods, family size, coverage, tool calls and usage.
 revised_design_row <- function(run_dir, scenario, source) {
   directory <- file.path(run_dir, "scenarios", scenario$id, paste0("agent-", source))
   session <- read_json(file.path(directory, "audit/session.json"))
@@ -45,12 +60,26 @@ revised_design_row <- function(run_dir, scenario, source) {
     test_summary = manifest$test_summary %||% "", multiplicity_summary = manifest$multiplicity_summary %||% "")
 }
 
+#' Extract a complete scenario-method aggregate metric
+#'
+#' @param global Scenario-method aggregate table from global_scores().
+#' @param scenario One-row scenario record containing id, data_id, m, c, and criterion.
+#' @param method Method ID used in score tables.
+#' @param field Metric column to extract, defaulting to power.
+#' @return Scalar value, or NA when the method is missing or incomplete.
 revised_metric <- function(global, scenario, method, field = "power") {
   row <- global[global$scenario == scenario & global$method == method, ]
   if (nrow(row) != 1L || !row$complete) return(NA_real_)
   row[[field]]
 }
 
+#' Compare original and revised realized power on matched data
+#'
+#' @param old_dir Original saved live-run directory.
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Eight-row comparison table; checks unchanged historical Welch Holm/BY baseline
+#'   metrics.
 revised_comparison <- function(old_dir, run_dir) {
   scenarios <- read_csv(file.path(run_dir, "scenarios.csv"))
   planning <- read_csv(file.path(run_dir, "planning.csv"))
@@ -77,6 +106,10 @@ revised_comparison <- function(old_dir, run_dir) {
   do.call(rbind, rows)
 }
 
+#' Describe frozen-direction coverage for the large high-power FDR setting
+#'
+#' @param designs Revised per-agent summary data frame.
+#' @return Editorial text, or an empty string if required coverage is unavailable.
 revised_coverage_note <- function(designs) {
   focus <- designs[designs$scenario == "fdr_m1000_c60", ]
   if (nrow(focus) != 3L || anyNA(focus$covered_true_directions)) return("")
@@ -86,6 +119,11 @@ revised_coverage_note <- function(designs) {
     covered, total, 100 * covered / total)
 }
 
+#' Describe BH/Holm labels in submitted manifest summaries
+#'
+#' @param designs Revised per-agent summary data frame.
+#' @return Editorial text based on text matching; equal weights also count as weighted in this
+#'   legacy summary.
 revised_method_note <- function(designs) {
   weighted <- grepl("\\bweighted\\b|fixed-weight", tolower(designs$multiplicity_summary), perl = TRUE)
   bh <- sum(weighted & designs$criterion == "FDR" & grepl("BH", designs$multiplicity_summary, fixed = TRUE))
@@ -93,6 +131,13 @@ revised_method_note <- function(designs) {
   sprintf("The submitted summaries describe weighted BH in %d FDR designs and weighted Holm in %d FWER designs. Source-derived weights prioritize promising directions while leaving positive weight for others. The allocations remain design choices, not evidence that the agents found an optimal rule.", bh, holm)
 }
 
+#' Compose the revised-run comparison narrative and power table
+#'
+#' @param comparison Eight-scenario original/revised comparison data frame.
+#' @param designs Revised per-agent summary data frame.
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Markdown text from saved tables and archived failure records.
 revised_summary_text <- function(comparison, designs, run_dir) {
   percent <- function(x) ifelse(is.na(x), "—", sprintf("%.1f%%", 100 * x))
   rows <- sprintf("| %s / %d / %.1f | %d | %s | %s | %s | %s |", comparison$criterion,
@@ -131,6 +176,11 @@ revised_summary_text <- function(comparison, designs, run_dir) {
   paste(report, collapse = "\n")
 }
 
+#' Write and render the project-dependent revised-run summary
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Writes analysis-summary.Rmd/html; requires original results and project helpers.
 render_revised_summary <- function(run_dir) {
   source <- c("---", "title: Revised-prompt live run", "output:", "  html_document:",
     "    self_contained: true", "    theme: readable", "---", "",
@@ -148,6 +198,13 @@ render_revised_summary <- function(run_dir) {
   rmarkdown::render(input, quiet = TRUE, envir = new.env(parent = globalenv()))
 }
 
+#' Verify matching datasets and build the revised-run summaries
+#'
+#' @param old_dir Original saved live-run directory.
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Writes agent-designs.csv, comparison.csv, and Markdown/R Markdown/HTML; reads
+#'   private truth, never calls models.
 summarize_revised_run <- function(old_dir, run_dir) {
   stopifnot(read_json(file.path(run_dir, "run.json"))$mode == "live",
             file.exists(file.path(run_dir, "completion.json")))

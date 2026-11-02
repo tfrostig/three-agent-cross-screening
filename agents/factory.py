@@ -1,4 +1,7 @@
-"""Session-local PydanticAI agents and typed R tools."""
+"""Build independent PydanticAI agents and register their typed tools.
+
+The nested tool docstrings are model-visible experiment inputs. Host-only
+maintainer docs live on the outer registration functions and in docs/agent-api.md."""
 
 from pydantic_ai import Agent, ModelRetry, RunContext, ToolOutput
 
@@ -7,7 +10,16 @@ from agents.models import AgentDependencies, DesignManifest, ToolResult
 
 
 def build_agent(model, system_prompt: str, instructions: str):
-    """Construct a fresh agent without shared conversation state."""
+    """Construct a session-local agent and register its capabilities.
+
+    Args:
+        model: PydanticAI model instance, live or deterministic fixture.
+        system_prompt: Shared statistical role and scientific objective.
+        instructions: Shared execution contract plus optional reference brief.
+
+    Returns:
+        A fresh Agent with strict DesignManifest output and session-bound tools.
+    """
     agent = Agent(model, deps_type=AgentDependencies,
                   output_type=ToolOutput(DesignManifest, name="finalize_design", strict=True, max_retries=2),
                   system_prompt=system_prompt, instructions=instructions, retries=2)
@@ -18,7 +30,14 @@ def build_agent(model, system_prompt: str, instructions: str):
 
 
 def register_tools(agent):
-    """Register only the session-bound R and artifact capabilities."""
+    """Attach R exploration, artifact-writing, and contract-check tools.
+
+    Args:
+        agent: Fresh Agent to mutate with tool registrations.
+
+    Tool descriptions below are model-visible prompt content. Keep maintainer
+    documentation outside those descriptions unless changing the experiment.
+    """
     @agent.tool
     def run_r(ctx: RunContext[AgentDependencies], code: str) -> ToolResult:
         """Explore your own data in a fresh R process with an initialized seed.
@@ -57,7 +76,11 @@ def register_tools(agent):
 
 
 def register_reference_tool(agent):
-    """Register bounded access to the session-local reference snapshot."""
+    """Attach approved-section retrieval using only the current dependencies.
+
+    Args:
+        agent: Agent receiving a reference tool; no global library is shared.
+    """
     @agent.tool
     def read_reference(ctx: RunContext[AgentDependencies], reference_id: str,
                        section_id: str = "overview") -> ToolResult:
@@ -76,7 +99,17 @@ def register_reference_tool(agent):
 
 
 def check_current_design(deps: AgentDependencies) -> ToolResult:
-    """Record hashes only after a successful contract execution."""
+    """Check executable structure and remember the exact successful artifact bytes.
+
+    Args:
+        deps: Mutable state for one session, including runner and repair budget.
+
+    Returns:
+        ToolResult from the source-data contract check, never target results.
+
+    Raises:
+        RuntimeError: The configured contract-repair budget is exhausted.
+    """
     try:
         hashes = artifact_hashes(deps.config.workspace)
         result = deps.runner.execute("check")
@@ -94,9 +127,17 @@ def check_current_design(deps: AgentDependencies) -> ToolResult:
 
 
 def register_validator(agent):
-    """Require a successful current-artifact check before final output."""
+    """Require final output to refer to currently checked artifact hashes.
+
+    Args:
+        agent: Agent receiving the final-output validator.
+
+    A write invalidates the prior check; finalization cannot bypass a recheck.
+    """
     @agent.output_validator
     def validate_output(ctx: RunContext[AgentDependencies], output: DesignManifest) -> DesignManifest:
+        """Accept the manifest only while artifact hashes match the last check.
+        """
         deps = ctx.deps
         try:
             hashes = artifact_hashes(deps.config.workspace)

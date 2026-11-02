@@ -1,5 +1,13 @@
+#' CLI: --run-dir DIR. Export exact R source from existing audit requests; never execute the
+#'   extracted snippets.
+
 source("R/bootstrap.R")
 
+#' Export exact submitted R bytes without replacing different content
+#'
+#' @param code Exact exploratory R source submitted to run_r.
+#' @param output Destination directory or file, as indicated in the description.
+#' @return Creates output or verifies identical existing source; stops on a mismatch.
 write_exploration_source <- function(code, output) {
   bytes <- charToRaw(enc2utf8(code))
   if (file.exists(output)) {
@@ -11,6 +19,12 @@ write_exploration_source <- function(code, output) {
   }
 }
 
+#' Convert one recorded explore request into an R file and index row
+#'
+#' @param path Input or destination filesystem path, as indicated in the description.
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return One-row metadata data frame, or NULL for non-exploration modes.
 export_exploration_request <- function(path, run_dir) {
   request <- read_json(path)
   if (!identical(request$mode, "explore")) return(NULL)
@@ -28,6 +42,9 @@ export_exploration_request <- function(path, run_dir) {
     execution_seed = request$execution_seed, sha256 = file_hash(output), status = status)
 }
 
+#' Describe how archived exploratory snippets depend on their original setup
+#'
+#' @return Character lines for exploration-README.md.
 exploration_readme <- function() {
   c("# Archived exploratory R code", "",
     "exploration-index.csv lists every exported exploration call, its source file, original request, result, execution seed, and SHA-256 digest. Paths are relative to this run directory.", "",
@@ -39,6 +56,12 @@ exploration_readme <- function() {
     "```sh", "Rscript --vanilla scripts/export_exploration.R --run-dir results/live-first", "```")
 }
 
+#' Export saved exploration calls and build their index
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Writes .R copies, exploration-index.csv, and a reading guide without executing R
+#'   snippets or calling models.
 export_exploration <- function(run_dir) {
   run_dir <- normalizePath(run_dir, mustWork = TRUE)
   paths <- sort(list.files(file.path(run_dir, "scenarios"),

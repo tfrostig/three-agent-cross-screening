@@ -1,12 +1,25 @@
+#' Legacy original-run Word report builder. Requires saved results, Pandoc and XML helpers;
+#'   visually verify any regenerated Word artifact.
+
 source("R/bootstrap.R")
 source("analyses/technical_note.R")
 
+#' Insert a report page break using raw OpenXML
+#'
+#' @return Markdown fragment for Word-oriented rendering.
 note_page_break <- function() {
   '\n\n```{=openxml}\n<w:p><w:r><w:br w:type="page"/></w:r></w:p>\n```\n\n'
 }
 
+#' Display literal prompt text as a fenced code block
+#'
+#' @param text Character text to escape, sanitize, or write.
+#' @return Markdown string without interpreting prompt content as instructions.
 prompt_block <- function(text) paste0("\n\n```text\n", sub("\n$", "", text), "\n```\n")
 
+#' Select three reviewed examples from original frozen artifacts
+#'
+#' @return List of excerpt metadata and agent explanations; tied to the original run.
 note_agent_examples <- function() {
   list(
     list(title = "Artificial row differences", design = "fwer_m100_c20/agent-1",
@@ -36,6 +49,10 @@ note_agent_examples <- function() {
   )
 }
 
+#' Format one archived code example with its explanation
+#'
+#' @param example Archived example metadata and exact code/report excerpts.
+#' @return Markdown text quoting the source artifact and separating editorial commentary.
 render_agent_example <- function(example) {
   frozen <- file.path("results/live-first/scenarios", example$design, "frozen")
   verify_frozen(frozen)
@@ -56,6 +73,9 @@ render_agent_example <- function(example) {
     "Our reading: ", example$interpretation, "\n\n", source, "\n")
 }
 
+#' Combine original agent examples into the supplement
+#'
+#' @return Markdown appendix string.
 note_examples_appendix <- function() {
   examples <- vapply(note_agent_examples(), render_agent_example, character(1))
   paste0(note_page_break(), "# Appendix D Examples from frozen agent designs\n\n",
@@ -63,6 +83,9 @@ note_examples_appendix <- function() {
     paste(examples[1:2], collapse = "\n"), note_page_break(), examples[3])
 }
 
+#' Collect archived shared and session prompts for the original run
+#'
+#' @return Markdown appendix; current prompt templates are not substituted for archived text.
 note_prompt_appendix <- function() {
   paths <- list.files("results/live-first/scenarios", pattern = "prompts.json$",
                        recursive = TRUE, full.names = TRUE)
@@ -82,6 +105,10 @@ note_prompt_appendix <- function() {
     "\n## FDR session message\n", prompt_block(fdr$user))
 }
 
+#' Fill the historical note template from saved results
+#'
+#' @return Writes the composed Markdown note and returns its destination path; requires saved
+#'   comparison outputs and original artifacts.
 compose_research_note <- function() {
   body <- paste(readLines("docs/agent-analysis-research-note.md", warn = FALSE), collapse = "\n")
   sections <- list(CONCISE_RESULTS = concise_note_results())
@@ -95,6 +122,13 @@ compose_research_note <- function() {
   output
 }
 
+#' Apply Word table-cell widths, borders and paragraph styles
+#'
+#' @param row Character scalar containing a legacy Word table row's XML.
+#' @param widths Numeric cell widths for the legacy Word formatter.
+#' @param header Logical; apply header-row styling.
+#' @param last Logical; apply the final-row border rule.
+#' @return Modified XML row string for the legacy Word formatter.
 style_note_row <- function(row, widths, header, last) {
   if (grepl('<w:trPr>', row, fixed = TRUE)) {
     row <- sub('<w:trPr>', '<w:trPr><w:cantSplit/>', row, fixed = TRUE)
@@ -114,6 +148,10 @@ style_note_row <- function(row, widths, header, last) {
   row
 }
 
+#' Apply layout rules to one legacy Word table
+#'
+#' @param table Character scalar containing a Word table's XML.
+#' @return Modified XML table string.
 style_one_table <- function(table) {
   rows <- regmatches(table, gregexpr('<w:tr>.*?</w:tr>', table, perl = TRUE))[[1]]
   cells <- regmatches(rows[1], gregexpr('<w:tc>.*?</w:tc>', rows[1], perl = TRUE))[[1]]
@@ -131,6 +169,11 @@ style_one_table <- function(table) {
   table
 }
 
+#' Choose widths for the legacy report's table types
+#'
+#' @param columns Number of columns in the report table.
+#' @param per_design Logical; use the per-design appendix layout.
+#' @return Numeric vector of cell widths for the supplied table shape.
 note_table_widths <- function(columns, per_design) {
   if (columns == 2L) return(c(6300L, 3636L))
   if (columns == 3L) return(c(1000L, 7300L, 1636L))
@@ -140,6 +183,10 @@ note_table_widths <- function(columns, per_design) {
   rep(9936L / columns, columns)
 }
 
+#' Style all tables inside a legacy Word document
+#'
+#' @param document Character scalar containing the Word document XML.
+#' @return Modified document XML string; does not mutate the caller's input.
 style_note_tables <- function(document) {
   tables <- regmatches(document, gregexpr('<w:tbl>.*?</w:tbl>', document, perl = TRUE))[[1]]
   for (table in tables) document <- sub(table, style_one_table(table), document, fixed = TRUE)
@@ -152,6 +199,10 @@ style_note_tables <- function(document) {
   sub(introduction, kept, document, fixed = TRUE)
 }
 
+#' Adjust code and prompt paragraph styles in Word XML
+#'
+#' @param styles Character scalar containing Word styles XML.
+#' @return Modified styles XML string.
 style_prompt_text <- function(styles) {
   pattern <- '(?s)<w:style[^>]*w:styleId="(SourceCode|VerbatimChar)"[^>]*>.*?</w:style>'
   matches <- regmatches(styles, gregexpr(pattern, styles, perl = TRUE))[[1]]
@@ -166,6 +217,10 @@ style_prompt_text <- function(styles) {
   styles
 }
 
+#' Apply legacy report font, spacing, and heading styles
+#'
+#' @param styles Character scalar containing Word styles XML.
+#' @return Modified styles XML string.
 style_note_styles <- function(styles) {
   styles <- gsub('<w:color[^>]*/>', '<w:color w:val="000000"/>', styles)
   styles <- gsub('<w:pBdr>.*?</w:pBdr>', '', styles, perl = TRUE)
@@ -177,6 +232,11 @@ style_note_styles <- function(styles) {
   style_prompt_text(styles)
 }
 
+#' Unpack, style, and repack a generated legacy Word note
+#'
+#' @param path Input or destination filesystem path, as indicated in the description.
+#' @return Rewrites the supplied docx; publishing a document still requires visual
+#'   verification.
 style_word_note <- function(path) {
   directory <- tempfile("research-note-")
   dir.create(directory)
@@ -196,6 +256,10 @@ style_word_note <- function(path) {
   utils::zip(path, list.files(".", recursive = TRUE, all.files = TRUE, no.. = TRUE), flags = "-q")
 }
 
+#' Build the legacy original-run Word research note
+#'
+#' @return Writes deliverables Markdown/docx from saved results; this is not the revised-run
+#'   summary.
 build_research_note <- function() {
   input <- compose_research_note()
   path <- file.path(dirname(input), "agent-analysis-research-note.docx")

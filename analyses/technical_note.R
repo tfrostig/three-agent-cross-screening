@@ -1,5 +1,15 @@
+#' Legacy original-run reporting helpers; require saved original/comparison data and manually
+#'   reviewed test categories.
+
+#' Format a scenario label for the original research note
+#'
+#' @param row One scenario record to label, or a Word XML row in styling helpers.
+#' @return Character label containing criterion, m, and c.
 technical_setting <- function(row) sprintf("%s %d / %.1f", row$criterion, row$m, row$c)
 
+#' Format the original run's four-method power comparison
+#'
+#' @return Markdown table string; requires original run and saved Welch comparison.
 concise_note_results <- function() {
   scores <- global_scores(technical_scores())
   scenarios <- read_csv("results/live-first/scenarios.csv")
@@ -19,11 +29,17 @@ concise_note_results <- function() {
     "|:---|---:|---:|---:|---:|---:|", rows), collapse = "\n")
 }
 
+#' Map historical report column labels to method IDs
+#'
+#' @return Named character vector A through E.
 technical_methods <- function() {
   c(A = "agent", B = "agent_shortlist_welch", C = "welch_screen_welch",
     D = "welch", E = "oracle_variance_z")
 }
 
+#' Join saved historical comparison and oracle rows
+#'
+#' @return Validated 120-row score table from local results; no analysis is rerun.
 technical_scores <- function() {
   replay <- read_csv("results/welch-method-comparison/scores.csv")
   original <- read_csv("results/live-first/scores.csv")
@@ -32,6 +48,11 @@ technical_scores <- function() {
   scores
 }
 
+#' Format a chosen historical metric across five methods
+#'
+#' @param formatter Function accepting an ordered method table and returning display strings.
+#' @param headers Character vector of Markdown column headings.
+#' @return Markdown table string using the caller's formatter and column headers.
 technical_metric_table <- function(formatter, headers) {
   scores <- global_scores(technical_scores())
   scenarios <- read_csv("results/live-first/scenarios.csv")
@@ -46,6 +67,9 @@ technical_metric_table <- function(formatter, headers) {
           "|:---|---:|---:|---:|---:|---:|", rows), collapse = "\n")
 }
 
+#' Format and check historical sample-size minimality
+#'
+#' @return Markdown table; requires planning.csv and verifies the strict crossing condition.
 technical_planning_table <- function() {
   x <- read_csv("results/live-first/planning.csv")
   x <- x[order(x$m, x$c), ]
@@ -56,6 +80,11 @@ technical_planning_table <- function() {
           "|:---|---:|---:|---:|:---|", rows), collapse = "\n")
 }
 
+#' Look up manually reviewed test categories in the original run
+#'
+#' @param scenario Original-run scenario ID string, not a scenario data frame.
+#' @param source Source subgroup index (1, 2, or 3).
+#' @return T1-T4 label; valid only for the archived original 24 designs, not new runs.
 technical_test_type <- function(scenario, source) {
   id <- paste0(scenario, "/agent-", source)
   if (id %in% c("fdr_m100_c20/agent-1", "fdr_m1000_c20/agent-1")) return("T4")
@@ -65,6 +94,10 @@ technical_test_type <- function(scenario, source) {
   "T1"
 }
 
+#' Summarize all original frozen designs and true-direction coverage
+#'
+#' @return Validated 24-row table; reads private truth on the trusted host and verifies frozen
+#'   hashes.
 technical_agent_rows <- function() {
   scenarios <- read_csv("results/live-first/scenarios.csv")
   original <- read_csv("results/live-first/scores.csv")
@@ -93,6 +126,10 @@ technical_agent_rows <- function() {
   result
 }
 
+#' Aggregate original source-family coverage of target signals
+#'
+#' @param agents Original per-design table from technical_agent_rows().
+#' @return Markdown table and a saved coverage.csv under comparison report-tables.
 technical_coverage_table <- function(agents) {
   rows <- lapply(split(agents, factor(agents$scenario, levels = unique(agents$scenario))), function(x) {
     data.frame(setting = x$setting[1], scenario = x$scenario[1], covered = sum(x$covered),
@@ -107,6 +144,9 @@ technical_coverage_table <- function(agents) {
           "|:---|---:|---:|---:|---:|", values), collapse = "\n")
 }
 
+#' Format original-run elapsed time and model usage
+#'
+#' @return Markdown table from saved retained-session usage and run timestamps.
 technical_usage_table <- function() {
   x <- read_csv("results/live-first/usage.csv")
   run <- read_json("results/live-first/run.json")
@@ -123,6 +163,10 @@ technical_usage_table <- function() {
   paste(c("| Execution measure | Observed value |", "|:---|---:|", rows), collapse = "\n")
 }
 
+#' Build the historical technical note's data-dependent sections
+#'
+#' @return Named Markdown replacements; also writes agent-design and global-results report
+#'   tables.
 technical_sections <- function() {
   agents <- technical_agent_rows()
   scores <- technical_scores()
@@ -136,6 +180,9 @@ technical_sections <- function() {
     TECH_COVERAGE = technical_coverage_table(agents), TECH_USAGE = technical_usage_table())
 }
 
+#' Format original per-design routes and outcomes
+#'
+#' @return Markdown appendix; depends on manually reviewed original test-type labels.
 technical_agent_appendix <- function() {
   x <- technical_agent_rows()
   rows <- sprintf("| %s | %d to %d | %s | %d / %d | %d / %d | %.2f%% |", x$setting,

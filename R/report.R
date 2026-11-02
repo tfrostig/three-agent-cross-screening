@@ -1,3 +1,10 @@
+#' Render saved local outcomes; requires private setting files for planning tables but never
+#'   calls a live model.
+
+#' Escape report text for safe HTML insertion
+#'
+#' @param text Character text to escape, sanitize, or write.
+#' @return Character vector with HTML-sensitive characters encoded.
 escape_html <- function(text) {
   text <- gsub("&", "&amp;", text, fixed = TRUE)
   text <- gsub("<", "&lt;", text, fixed = TRUE)
@@ -5,6 +12,12 @@ escape_html <- function(text) {
   gsub('"', "&quot;", text, fixed = TRUE)
 }
 
+#' Summarize sample-size minimality from trusted saved settings
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Data frame of n, power at n and n-1, and subgroup signal counts; failed settings
+#'   are omitted.
 planning_table <- function(run_dir) {
   paths <- list.files(file.path(run_dir, "private"), pattern = "\\.rds$", full.names = TRUE)
   rows <- lapply(paths, function(path) {
@@ -20,6 +33,11 @@ planning_table <- function(run_dir) {
   data.table::rbindlist(rows, fill = TRUE) |> as.data.frame()
 }
 
+#' Read scientific explanations from frozen designs only
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return List of report labels/text; never reads mutable workspace drafts.
 agent_reports <- function(run_dir) {
   paths <- list.files(file.path(run_dir, "scenarios"), pattern = "report.md$", recursive = TRUE, full.names = TRUE)
   paths <- paths[basename(dirname(paths)) == "frozen"]
@@ -29,6 +47,12 @@ agent_reports <- function(run_dir) {
   })
 }
 
+#' Collect retained session usage and duration records
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Data frame for reporting. Missing usage fields default to zero; failed-attempt
+#'   usage may be incomplete.
 session_usage <- function(run_dir) {
   files <- list.files(file.path(run_dir, "scenarios"), pattern = "session.json$", recursive = TRUE, full.names = TRUE)
   rows <- lapply(files, function(path) {
@@ -43,6 +67,13 @@ session_usage <- function(run_dir) {
   data.table::rbindlist(rows, fill = TRUE) |> as.data.frame()
 }
 
+#' Plot successful per-target realized power
+#'
+#' @param scores Per-target scores.csv data frame including method, status, and discovery
+#'   metrics.
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Writes power.png; returns invisibly without a plot if no evaluations succeeded.
 save_report_plots <- function(scores, run_dir) {
   good <- scores[scores$status == "ok", , drop = FALSE]
   if (!nrow(good)) return(invisible(NULL))
@@ -54,6 +85,12 @@ save_report_plots <- function(scores, run_dir) {
   ggplot2::ggsave(file.path(run_dir, "power.png"), figure, width = 11, height = 5, dpi = 150)
 }
 
+#' Rebuild the full HTML report from saved local results
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Writes report.html, planning.csv, usage.csv, power.png, and render intermediates.
+#'   Requires private setting files but makes no model calls.
 render_pilot_report <- function(run_dir) {
   run_dir <- normalizePath(run_dir, mustWork = TRUE)
   run <- read_json(file.path(run_dir, "run.json"))

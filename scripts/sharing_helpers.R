@@ -1,3 +1,10 @@
+#' Allowlisted copy, path-sanitization and heuristic secret checks for public source and
+#'   review bundles. These checks never read .env.
+
+#' Define heuristic credential patterns for publication review
+#'
+#' @return PCRE pattern; this is a format check, not a guarantee that arbitrary secrets are
+#'   absent.
 publication_secret_pattern <- function() {
   paste(c("(?<![A-Za-z0-9_-])sk-(?:proj-)?[A-Za-z0-9_-]{20,}",
     "(?<![A-Za-z0-9_])gh[pousr]_[A-Za-z0-9]{20,}",
@@ -6,6 +13,11 @@ publication_secret_pattern <- function() {
     "https?://[^/[:space:]:]+:[^/@[:space:]]+@"), collapse = "|")
 }
 
+#' Identify generated or private paths that must not be staged
+#'
+#' @param paths Character vector of filesystem paths or names to inspect.
+#' @return Logical vector aligned to paths; a plain .env.example is permitted outside blocked
+#'   directories.
 publication_private_path <- function(paths) {
   blocked <- "(^|/)(results|exports|deliverables|private|secrets|\\.venv|\\.git|__pycache__|\\.pytest_cache)(/|$)|(^|/)renv/(library|cache|staging|python)/"
   files <- "(^|/)(\\.env($|\\.)|\\.envrc$|credentials\\.json$|service-account[^/]*\\.json$|id_(rsa|ed25519)[^/]*$)"
@@ -14,12 +26,20 @@ publication_private_path <- function(paths) {
     (grepl(files, paths, perl = TRUE) & !grepl("(^|/)\\.env\\.example$", paths))
 }
 
+#' Read bounded text for publication review
+#'
+#' @param path Input or destination filesystem path, as indicated in the description.
+#' @return File content as a character scalar; refuses files larger than 20 MiB.
 publication_read_text <- function(path) {
   size <- file.info(path)$size
   if (is.na(size) || size > 20 * 1024^2) stop("Unexpected file size: ", path)
   readChar(path, nchars = size, useBytes = TRUE)
 }
 
+#' Reject common credential formats without reading private key files
+#'
+#' @param paths Character vector of filesystem paths or names to inspect.
+#' @return TRUE invisibly; on a match reports filenames only, never matching secret text.
 publication_scan <- function(paths) {
   suspect <- vapply(paths, function(path) {
     text <- publication_read_text(path)
@@ -29,11 +49,20 @@ publication_scan <- function(paths) {
   invisible(TRUE)
 }
 
+#' Write exact UTF-8 export content
+#'
+#' @param text Character text to escape, sanitize, or write.
+#' @param path Input or destination filesystem path, as indicated in the description.
+#' @return Creates parent directories and writes bytes without an added newline.
 publication_write_text <- function(text, path) {
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   writeBin(charToRaw(enc2utf8(text)), path)
 }
 
+#' Replace local project, home, and temporary paths in export text
+#'
+#' @param text Character text to escape, sanitize, or write.
+#' @return Sanitized character text; the original source file is not changed.
 publication_sanitize_paths <- function(text) {
   text <- gsub(project_root, "[PROJECT_ROOT]", text, fixed = TRUE)
   text <- gsub(utils::URLencode(project_root), "[PROJECT_ROOT]", text, fixed = TRUE)
@@ -41,6 +70,13 @@ publication_sanitize_paths <- function(text) {
   gsub("/private/(?:var/folders|tmp)/[^\"'<>[:space:]]+", "[TEMP_PATH]", text, perl = TRUE)
 }
 
+#' Copy an export file and optionally sanitize local paths
+#'
+#' @param source Existing regular source file; symbolic links are rejected.
+#' @param target Export destination file path, never the original source path.
+#' @param immutable Logical; forbid sanitization or alteration of copied artifact bytes.
+#' @return Invisible disposition: unchanged or path-sanitized. Immutable artifacts must be
+#'   byte-identical or copying stops.
 publication_copy <- function(source, target, immutable = FALSE) {
   if (nzchar(Sys.readlink(source))) stop("Refusing linked file: ", source)
   dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)

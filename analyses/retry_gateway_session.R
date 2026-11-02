@@ -1,5 +1,14 @@
+#' Historical, narrowly guarded HTTP 520 recovery. CLI: --run-dir DIR, --scenario ID, --source
+#'   1|2|3. Can make live paid calls and update one failed result.
+
 source("R/bootstrap.R")
 
+#' Require the exact original implementation before a targeted gateway retry
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Validated live-run configuration with image and reference identities; stops after
+#'   any signature change.
 gateway_retry_config <- function(run_dir) {
   run <- read_json(file.path(run_dir, "run.json"))
   stopifnot(run$mode == "live", file.exists(file.path(run_dir, "completion.json")))
@@ -13,6 +22,12 @@ gateway_retry_config <- function(run_dir) {
   config
 }
 
+#' Archive score tables and report before replacing a failed attempt
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @return Creates infrastructure-retries/first-pass once; stops rather than replacing an
+#'   existing archive.
 preserve_first_pass <- function(run_dir) {
   output <- file.path(run_dir, "infrastructure-retries/first-pass")
   if (dir.exists(output)) stop("First-pass archive already exists; inspect before any further retry")
@@ -22,6 +37,19 @@ preserve_first_pass <- function(run_dir) {
   stopifnot(all(file.exists(files)), all(file.copy(files, output, overwrite = FALSE)))
 }
 
+#' Replace one failed score and rebuild recovery summaries
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @param scenario One-row scenario record containing id, data_id, m, c, and criterion.
+#' @param source Source subgroup index (1, 2, or 3).
+#' @param result Recovered source-session summary from run_design().
+#' @param score One updated per-target score row.
+#' @param scores Per-target scores.csv data frame including method, status, and discovery
+#'   metrics.
+#' @param index Row index to replace in the scores table.
+#' @return Updates design status, scores, completion metadata and report; preserves unrelated
+#'   score rows.
 publish_gateway_recovery <- function(run_dir, scenario, source, result, score, scores, index) {
   status_path <- file.path(run_dir, "scenarios", scenario$id, "design-status.json")
   statuses <- jsonlite::read_json(status_path, simplifyVector = FALSE)
@@ -36,6 +64,14 @@ publish_gateway_recovery <- function(run_dir, scenario, source, result, score, s
   message("Gateway recovery complete: ", scenario$id, " / agent ", source)
 }
 
+#' Recover the historical unfrozen HTTP 520 session under strict guards
+#'
+#' @param run_dir Saved run directory containing metadata, scenarios, scores, and host-private
+#'   inputs.
+#' @param scenario_id Stable scenario identifier such as fwer_m20_c20.
+#' @param source Source subgroup index (1, 2, or 3).
+#' @return Runs only one missing source design and its target evaluation; requires a matching
+#'   archived failed audit. Not a general retry command.
 retry_gateway_session <- function(run_dir, scenario_id, source) {
   run_dir <- normalizePath(run_dir, mustWork = TRUE)
   config <- gateway_retry_config(run_dir)

@@ -1,4 +1,8 @@
-"""Load versioned prompt templates without reading environment files."""
+"""Assemble versioned prompts and export an offline review copy.
+
+System role, shared execution instructions, optional reference context, and
+source-session task metadata are distinct inputs. Generator source, truth,
+planning targets, sibling histories, and target outcomes never enter this text."""
 
 import argparse
 import ast
@@ -9,7 +13,15 @@ from agents.references import ReferenceLibrary
 
 
 def load_prompts(root: Path, references: ReferenceLibrary | None = None) -> tuple[str, str]:
-    """Read the common statistical and execution instructions."""
+    """Load shared templates and optionally append approved reference context.
+
+    Args:
+        root: Project root containing prompts/system.txt and developer.txt.
+        references: Optional verified session-local ReferenceLibrary.
+
+    Returns:
+        Tuple of statistical system prompt and shared execution instructions.
+    """
     directory = root / "prompts"
     system = (directory / "system.txt").read_text(encoding="utf-8")
     instructions = (directory / "developer.txt").read_text(encoding="utf-8")
@@ -19,7 +31,15 @@ def load_prompts(root: Path, references: ReferenceLibrary | None = None) -> tupl
 
 
 def user_prompt(config: SessionConfig) -> str:
-    """Describe only the dimensions and requested directional criterion."""
+    """Build the source session's dimensions and directional-discovery task.
+
+    Args:
+        config: SessionConfig with sample dimensions, criterion, and supplied alpha.
+
+    Returns:
+        Task text without generator truth, sibling data, target outcomes, or n's
+        planning rationale. Source observations arrive only through the R tool.
+    """
     if config.criterion == "FWER":
         criterion = ("Strong directional FWER: under your stated assumptions, control the "
                      "probability of at least one false directional discovery at alpha.")
@@ -43,11 +63,14 @@ required artifacts, check the contract, and finalize your design.
 
 
 def write_prompt_preview(root: Path, output: Path) -> None:
-    """Export the actual shared prompts and R tool description for review.
+    """Export current assembled prompt text without running agents.
 
     Args:
-        root: Project directory containing prompts and the curated library.
-        output: Markdown destination for the review copy.
+        root: Project directory containing templates, curated pack, and tool source.
+        output: Markdown review destination; parent directories are created.
+
+    Reads the run_r docstring statically because it is part of model-visible data
+    documentation; does not load credentials or send provider requests.
     """
     references = ReferenceLibrary.load(root / "references/agent-pack")
     system, instructions = load_prompts(root, references)
@@ -64,7 +87,10 @@ def write_prompt_preview(root: Path, output: Path) -> None:
 
 
 def main():
-    """Build a prompt review copy without loading credentials or calling a model."""
+    """Run the offline prompt-preview CLI.
+
+    Accepts --output FILE, defaulting to deliverables/revised-agent-prompts.md.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=Path("deliverables/revised-agent-prompts.md"))
     args = parser.parse_args()

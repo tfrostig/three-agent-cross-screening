@@ -1,3 +1,6 @@
+#' CLI: --restore restores renv.lock; default installs missing host packages and refreshes the
+#'   lockfile. Requires package-download network access.
+
 library_directory <- file.path(getwd(), "renv", "library", "local")
 dir.create(library_directory, recursive = TRUE, showWarnings = FALSE)
 .libPaths(c(library_directory, .libPaths()))
