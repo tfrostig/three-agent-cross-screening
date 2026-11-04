@@ -12,22 +12,33 @@
 #'   observations; generation errors are stored without redrawing.
 prepare_data <- function(config, scenarios, run_dir) {
   settings <- scenarios[!duplicated(scenarios$data_id), c("data_id", "m", "c")]
-  all_settings <- unique(scenario_grid(config)$data_id)
+  all_settings <- setting_stream_ids(config)
   streams <- seed_streams(config$seed, 3L * length(all_settings))
   private <- ensure_dir(file.path(run_dir, "private"))
   Sys.chmod(private, "0700")
-  lapply(seq_len(nrow(settings)), function(i) {
+  records <- lapply(seq_len(nrow(settings)), function(i) {
     row <- settings[i, ]
     stream_index <- match(row$data_id, all_settings)
     path <- file.path(private, paste0(row$data_id, ".rds"))
     if (!file.exists(path)) {
-      setting <- tryCatch(generate_setting(config, row$m, row$c,
+      imported <- import_setting(config, row$data_id, path)
+      if (!imported) {
+        setting <- tryCatch(generate_setting(config, row$m, row$c,
                                            streams[(3L * stream_index - 2L):(3L * stream_index)]),
                           error = function(error) list(error = conditionMessage(error)))
-      atomic_rds(setting, path)
+        atomic_rds(setting, path)
+      }
     }
     data.frame(data_id = row$data_id, path = path)
   }) |> data.table::rbindlist() |> as.data.frame()
+  provenance <- records
+  provenance$stream_index <- match(provenance$data_id, all_settings)
+  provenance$sha256 <- vapply(provenance$path, file_hash, character(1))
+  provenance$origin <- vapply(provenance$data_id, function(id) {
+    if (is.null(reuse_file(config, file.path("private", paste0(id, ".rds"))))) "generated" else "imported"
+  }, character(1))
+  write_csv(provenance, file.path(run_dir, "data-provenance.csv"))
+  records
 }
 
 #' Create a run record or enforce an identical resume signature
@@ -186,7 +197,7 @@ scenario_designs <- function(config, scenario, setting, scenario_dir, offline, i
   lapply(seq_len(3L), function(source) {
     directory <- file.path(scenario_dir, paste0("agent-", source))
     message("Design ", scenario$id, " / agent ", source)
-    tryCatch(run_design(config, scenario, setting$observations[[source]], directory, offline, image_id),
+    tryCatch(prepare_design(config, scenario, setting$observations[[source]], directory, source, offline, image_id),
              error = function(error) list(status = "failed", error = conditionMessage(error)))
   })
 }
@@ -212,6 +223,9 @@ run_scenario <- function(config, scenario, setting, run_dir, offline, image_id) 
   }
   designs <- scenario_designs(config, scenario, setting, scenario_dir, offline, image_id)
   write_json(designs, file.path(scenario_dir, "design-status.json"))
+  if (identical(config$aggregation, "pooled_leave_one_out")) {
+    return(run_selected_scenario(config, scenario, setting, scenario_dir, designs))
+  }
   agent_scores <- lapply(seq_len(3L), function(source) {
     if (designs[[source]]$status != "ok") {
       return(score_row(scenario, "agent", source, source %% 3L + 1L, "failed",
@@ -239,14 +253,14 @@ run_pilot <- function(config, options) {
   if (!is.null(options$scenario)) scenarios <- scenarios[scenarios$id == options$scenario, , drop = FALSE]
   if (!nrow(scenarios)) stop("Unknown scenario")
   if (options$dry_run) {
-    print(scenarios, row.names = FALSE)
-    cat("Agent sessions:", 3 * nrow(scenarios), "\nAdditional validation draws: 0\n")
+    print_run_plan(scenarios, options$reuse_run)
     return(invisible(NULL))
   }
   if (!options$offline) validate_live_config(config)
   image_id <- docker_info(config$sandbox$image)
   config$sandbox$image <- image_id
   config$reference_digest <- reference_pack_digest(config)
+  config$reuse <- prepare_reuse(config, options$reuse_run, options$offline)
   directory <- options$run_dir %||% file.path(config$results_directory,
     paste0(if (options$offline) "offline-" else "live-", format(Sys.time(), "%Y%m%dT%H%M%SZ", tz = "UTC")))
   run_dir <- new_run(config, directory, options$offline, options$resume, image_id, scenarios$id)
@@ -260,7 +274,7 @@ run_pilot <- function(config, options) {
     write_csv(do.call(rbind, summaries[seq_len(i)]), file.path(run_dir, "scores.csv"))
   }
   scores <- do.call(rbind, summaries)
-  write_csv(global_scores(scores), file.path(run_dir, "global-scores.csv"))
+  write_run_summaries(scores, run_dir)
   write_json(list(completed_at = timestamp(), successful = sum(scores$status == "ok"),
                   failed = sum(scores$status != "ok")), file.path(run_dir, "completion.json"))
   render_pilot_report(run_dir)

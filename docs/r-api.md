@@ -1,12 +1,10 @@
 # R function reference
 
-Roxygen-style source documentation is authoritative. This is a sourced-script project; roxygen2 is not required. See the [developer walkthrough](developer-guide.md) for the call sequence and worked example.
+Source documentation is authoritative. This is a sourced-script project; roxygen2 is not required. See the [developer walkthrough](developer-guide.md) and [pooled-selection guide](pooled-selection.md).
 
 ## `R/bootstrap.R`
 
-
 ## `R/config.R`
-
 
 ### `r_packages`
 
@@ -50,7 +48,7 @@ Substitute a default only for NULL
 
 ### `scenario_grid`
 
-Expand the permitted eight scenarios and shared dataset IDs
+Expand the permitted scenarios and shared dataset IDs
 
 [Source](../R/config.R)
 
@@ -79,7 +77,6 @@ Check explicit model selection and private credential availability
 **Returns / effects:** No scientific result; stops before agents start if configuration is unavailable.
 
 ## `R/contracts.R`
-
 
 ### `validate_matrices`
 
@@ -144,7 +141,6 @@ Read per-hypothesis results with explicit column types
 **Returns / effects:** Result data frame; reject is logical. Validation is a separate operation.
 
 ## `R/designs.R`
-
 
 ### `write_pair`
 
@@ -231,8 +227,107 @@ Reuse a verified design or launch one isolated PydanticAI session
 
 **Returns / effects:** Session summary list. Writes source inputs, controller manifest, audit logs, and successful cache metadata; never overwrites an indexed frozen design.
 
-## `R/io.R`
+## `R/imports.R`
 
+### `setting_stream_ids`
+
+Preserve the original six stream slots and append c=0.9 settings.
+
+[Source](../R/imports.R)
+
+- `config`: Validated experiment configuration.
+
+**Returns / effects:** Ordered data IDs; stable for both supported grids.
+
+### `print_run_plan`
+
+Print planned imported/new design counts without Docker, credentials, or models.
+
+[Source](../R/imports.R)
+
+- `scenarios`: Selected scenario rows.
+- `reuse_run`: Optional historical run directory; contents are verified during execution.
+
+**Returns / effects:** Prints the plan, explicitly distinguishing artifacts from new sessions.
+
+### `prepare_reuse`
+
+Snapshot and validate a reuse source before any new sessions.
+
+[Source](../R/imports.R)
+
+- `config`: Current configuration with resolved Docker and reference identities.
+- `path`: Optional saved run directory.
+- `offline`: Whether the destination uses deterministic fixture sessions.
+
+**Returns / effects:** NULL or provenance containing the source path, identity, and file hashes.
+
+### `reuse_file`
+
+Verify a snapshotted source file before importing it.
+
+[Source](../R/imports.R)
+
+- `config`: Destination configuration containing reuse provenance.
+- `relative`: Source-run-relative path.
+
+**Returns / effects:** Verified regular source file path, or NULL if absent from the source snapshot.
+
+### `import_setting`
+
+Copy an available historical dataset without reserializing it.
+
+[Source](../R/imports.R)
+
+- `config`: Destination configuration with optional reuse record.
+- `data_id`: Measurement/power setting ID.
+- `destination`: New private RDS path.
+
+**Returns / effects:** TRUE if imported; FALSE if this setting requires generation.
+
+### `copy_imported_session`
+
+Copy approved historical session files with byte-integrity checks.
+
+[Source](../R/imports.R)
+
+- `config`: Configuration containing the source snapshot.
+- `relative`: Source-run-relative agent directory.
+- `directory`: New agent directory.
+
+**Returns / effects:** NULL; creates input, frozen, and audit copies only.
+
+### `import_design`
+
+Recheck one imported design against its own source observations.
+
+[Source](../R/imports.R)
+
+- `config`: Current sandbox configuration.
+- `scenario`: One scenario row.
+- `pair`: Expected source observations from the imported setting.
+- `directory`: Destination agent directory.
+- `source`: Source subgroup number.
+
+**Returns / effects:** Original successful session summary, with a separate import/check provenance file.
+
+### `prepare_design`
+
+Import an available source design or launch exactly one new session.
+
+[Source](../R/imports.R)
+
+- `config`: Validated configuration and optional reuse snapshot.
+- `scenario`: One scenario record.
+- `pair`: This source's observations only.
+- `directory`: Destination source-agent directory.
+- `source`: Source subgroup number.
+- `offline`: Whether to use a fixture provider for new sessions.
+- `image_id`: Resolved Docker image identity.
+
+**Returns / effects:** Source session summary; imported sessions make no API calls.
+
+## `R/io.R`
 
 ### `ensure_dir`
 
@@ -351,7 +446,6 @@ Publish an RDS file through a same-directory temporary file
 
 ## `R/metrics.R`
 
-
 ### `directional_family`
 
 Enumerate both directional alternatives for every measurement
@@ -413,7 +507,6 @@ Combine successful target evaluations within scenario and method
 **Returns / effects:** Data frame of totals. Global FDP/power require exactly three successful target rows; incomplete groups receive NA.
 
 ## `R/pipeline.R`
-
 
 ### `prepare_data`
 
@@ -546,7 +639,6 @@ Coordinate the configured one-iteration experiment
 
 ## `R/references.R`
 
-
 ### `reference_pack_path`
 
 Resolve the curated reference library configured for the run
@@ -578,7 +670,6 @@ Record the reference path and verified catalog identity
 **Returns / effects:** List with path and digest for cache/run provenance.
 
 ## `R/report.R`
-
 
 ### `escape_html`
 
@@ -642,7 +733,6 @@ Rebuild the full HTML report from saved local results
 **Returns / effects:** Writes report.html, planning.csv, usage.csv, power.png, and render intermediates. Requires private setting files but makes no model calls.
 
 ## `R/sandbox.R`
-
 
 ### `docker_info`
 
@@ -724,8 +814,114 @@ Stage, execute, and validate one untrusted R request
 
 **Returns / effects:** Bounded execution metadata; optionally publishes a validated result CSV. Temporary stage/output directories are removed on exit.
 
-## `R/simulation.R`
+## `R/selection.R`
 
+### `pool_non_target`
+
+Pool only the two non-target observation pairs.
+
+[Source](../R/selection.R)
+
+- `observations`: List of three exposed/control pairs.
+- `target`: Held-out study index.
+
+**Returns / effects:** Exposed/control matrices with aligned columns and 2n rows per arm.
+
+### `choose_candidate`
+
+Choose the most discoveries, breaking ties by smaller source index.
+
+[Source](../R/selection.R)
+
+- `candidates`: Table containing source, status, and discoveries.
+
+**Returns / effects:** Selection record; failed candidates are excluded rather than scored zero.
+
+### `execute_frozen_pair`
+
+Run one fixed analysis on a supplied pair and record reusable result integrity.
+
+[Source](../R/selection.R)
+
+- `config`: Sandbox and testing-level configuration.
+- `pair`: Observations for either pooled selection or held-out testing.
+- `frozen`: Verified frozen design directory.
+- `prefix`: Output file prefix identifying purpose, target, and source.
+
+**Returns / effects:** Result, hypotheses, artifact/result hashes, and cache identity.
+
+### `evaluate_candidate`
+
+Evaluate a candidate without making any truth-based selection decisions.
+
+[Source](../R/selection.R)
+
+- `config`: Testing and sandbox configuration.
+- `pair`: Pooled non-target observations only.
+- `directory`: Scenario directory.
+- `source`: Candidate source index.
+- `target`: Held-out index, used solely for filenames and routing.
+
+**Returns / effects:** Audit row with a unique-measurement count and directional-conflict count.
+
+### `reuse_target_result`
+
+Reuse an identical historical held-out result after verifying its source snapshot.
+
+[Source](../R/selection.R)
+
+- `config`: Destination configuration with optional historical snapshot.
+- `scenario`: Scenario row.
+- `source`: Source index.
+- `target`: Held-out index.
+- `prefix`: New evaluation prefix.
+
+**Returns / effects:** TRUE if copied, otherwise FALSE; only the archived cyclic route is available.
+
+### `evaluate_selected_target`
+
+Evaluate or reuse a held-out source/target pair and create ledger and score rows.
+
+[Source](../R/selection.R)
+
+- `config`: Current execution configuration.
+- `scenario`: Scenario row.
+- `setting`: Trusted setting; effects are used only after analysis finishes.
+- `directory`: Scenario directory.
+- `source`: Selected or cyclic source index; NA denotes failed selection.
+- `target`: Held-out study index.
+- `method`: agent_pooled_select or agent_cycle.
+
+**Returns / effects:** List with a directional score and an evaluation-ledger row.
+
+### `selected_baselines`
+
+Evaluate full-family baselines and expose their outputs in the common ledger.
+
+[Source](../R/selection.R)
+
+- `config`: Baseline configuration.
+- `scenario`: Scenario row.
+- `setting`: Trusted setting.
+- `directory`: Scenario directory.
+
+**Returns / effects:** List of score data frame and ledger data frame.
+
+### `run_selected_scenario`
+
+Run pooled selection for all targets and retain the cyclic comparison.
+
+[Source](../R/selection.R)
+
+- `config`: Current configuration.
+- `scenario`: Scenario row.
+- `setting`: Trusted setting; truth is excluded from candidate evaluations.
+- `directory`: Scenario directory with three completed source attempts.
+- `designs`: Source attempt summaries, retained by the caller for audit.
+
+**Returns / effects:** Directional score rows; writes candidate, decision, and evaluation ledgers.
+
+## `R/simulation.R`
 
 ### `seed_streams`
 
@@ -821,8 +1017,455 @@ Generate one reusable setting using separate state, effect, and data streams
 
 **Returns / effects:** List containing states, effects, planning, observations, streams, m, and target; stops on resource limits.
 
-## `analyses/build_research_note.R`
+## `R/study_metrics.R`
 
+### `discovered_measurements`
+
+Collapse directional rejections into one claim per measurement per study.
+
+[Source](../R/study_metrics.R)
+
+- `hypotheses`: Frozen directional family.
+- `result`: Validated per-hypothesis output.
+
+**Returns / effects:** Character vector of discovered measurement IDs, without duplicates.
+
+### `study_count_scores`
+
+Evaluate all measurements under the count-only recovery definition.
+
+[Source](../R/study_metrics.R)
+
+- `effects`: Three-by-m truth matrix with measurement column names.
+- `claims`: List of three measurement-ID vectors, or NULL for missing target outputs.
+
+**Returns / effects:** Per-measurement counts, credit, and overclaim indicators; incomplete credit is NA.
+
+### `summarize_study_counts`
+
+Summarize recovery with equal weight for every nonnull measurement.
+
+[Source](../R/study_metrics.R)
+
+- `table`: Per-measurement output from study_count_scores().
+
+**Returns / effects:** One-row summary; all-null measurements are excluded, and incomplete methods are NA.
+
+### `score_study_ledger`
+
+Score a method across held-out studies using the saved evaluation ledger.
+
+[Source](../R/study_metrics.R)
+
+- `setting`: Host-private generated setting.
+- `ledger`: Three target records with status and artifact/result file paths.
+- `directory`: Scenario directory against which ledger paths are resolved.
+
+**Returns / effects:** Per-measurement table; missing or failed target records remain missing.
+
+### `write_run_summaries`
+
+Write primary recovery and secondary directional summaries for a completed run.
+
+[Source](../R/study_metrics.R)
+
+- `scores`: Per-target directional scores.
+- `run_dir`: Run directory with scenario ledgers and private settings.
+
+**Returns / effects:** Writes global-scores.csv and, for pooled runs, study-count summaries/tables.
+
+## `R/study_report.R`
+
+### `collect_scenario_tables`
+
+Collect selection ledgers without treating their counts as confirmed discoveries.
+
+[Source](../R/study_report.R)
+
+- `run_dir`: Saved pooled-selection run.
+- `filename`: Scenario-relative CSV filename.
+
+**Returns / effects:** Combined data frame with a scenario identifier.
+
+### `plot_study_recovery`
+
+Plot primary recovery rather than conventional directional power.
+
+[Source](../R/study_report.R)
+
+- `counts`: Scenario/method count-recovery table.
+- `run_dir`: Destination run directory.
+
+**Returns / effects:** Writes study-count-recovery.png using complete method rows.
+
+### `render_study_report`
+
+Render both full and portable concise reports from saved output only.
+
+[Source](../R/study_report.R)
+
+- `run_dir`: Completed or failed pooled-selection run.
+
+**Returns / effects:** Writes report.html, summary.Rmd/html/md, usage, planning, and recovery plot.
+
+## `scripts/agent_tool.R`
+
+## `scripts/build_image.R`
+
+## `scripts/build_reference_pack.R`
+
+### `reference_entry`
+
+Describe the provenance and permitted sections of one reference
+
+[Source](../scripts/build_reference_pack.R)
+
+- `id`: Stable reference or section identifier.
+- `source`: Source PDF filename relative to references/.
+- `citation`: Bibliographic citation text.
+- `pages`: Human-readable PDF page locator.
+- `excerpts`: List of explicitly approved excerpt specifications.
+
+**Returns / effects:** List used only by the trusted-host library build script.
+
+### `excerpt_spec`
+
+Specify PDF pages, text boundaries, and optional crop for an excerpt
+
+[Source](../scripts/build_reference_pack.R)
+
+- `id`: Stable reference or section identifier.
+- `first`: First PDF page to extract (one-based).
+- `last`: Last PDF page to extract (one-based).
+- `start`: Literal opening text marker.
+- `finish`: Literal closing text marker, included in the returned excerpt.
+- `crop`: Optional PDF crop coordinates passed to pdftotext (-x, -y, -W, -H).
+
+**Returns / effects:** Named extraction specification list.
+
+### `reference_entries`
+
+Declare the seven approved methodological references
+
+[Source](../scripts/build_reference_pack.R)
+
+
+**Returns / effects:** List of citation/source/extraction specifications, including a summary-only proposal entry.
+
+### `extract_reference_excerpt`
+
+Extract one bounded PDF passage on the trusted host
+
+[Source](../scripts/build_reference_pack.R)
+
+- `source`: Full source PDF path; read only by the trusted-host extraction process.
+- `spec`: Named excerpt specification from excerpt_spec().
+
+**Returns / effects:** Normalized text between explicit markers; requires pdftotext and stops on missing boundaries.
+
+### `build_reference_entry`
+
+Build approved excerpt files and provenance for one reference
+
+[Source](../scripts/build_reference_pack.R)
+
+- `entry`: One reference provenance/extraction record.
+- `root`: Trusted containing directory used for path validation.
+
+**Returns / effects:** Catalog entry with citation, source PDF hash, and named sections; writes extracted text only.
+
+### `build_reference_pack`
+
+Rebuild and hash the curated pack from separately available PDFs
+
+[Source](../scripts/build_reference_pack.R)
+
+
+**Returns / effects:** Writes catalog.json and approved excerpts; checks size limits and reports the verified digest.
+
+## `scripts/build_results_bundle.R`
+
+### `bundle_run_files`
+
+Select reviewable results through an explicit path allowlist
+
+[Source](../scripts/build_results_bundle.R)
+
+- `directory`: Filesystem directory holding the relevant inputs or outputs.
+
+**Returns / effects:** Sorted relative filenames; excludes input, private, work, controller logs, and caches.
+
+### `bundle_copy_run`
+
+Copy one completed live run into an export tree
+
+[Source](../scripts/build_results_bundle.R)
+
+- `name`: Saved live-run folder name, relative to results/.
+- `output`: Destination directory or file, as indicated in the description.
+
+**Returns / effects:** Manifest records for copied files; local paths may be sanitized except in immutable artifacts.
+
+### `bundle_check_run`
+
+Verify frozen hashes, exploration exports, and successful scores
+
+[Source](../scripts/build_results_bundle.R)
+
+- `directory`: Filesystem directory holding the relevant inputs or outputs.
+
+**Returns / effects:** No result value; stops unless the saved run has eight scenarios and 24 successful designs.
+
+### `bundle_extra_files`
+
+Copy the methodology and approved reference context
+
+[Source](../scripts/build_results_bundle.R)
+
+- `output`: Destination directory or file, as indicated in the description.
+
+**Returns / effects:** Manifest records for methods documents, current prompts, and curated library files.
+
+### `bundle_examples`
+
+Write editorial descriptions linking two actual revised designs
+
+[Source](../scripts/build_results_bundle.R)
+
+- `output`: Destination directory or file, as indicated in the description.
+
+**Returns / effects:** Creates examples/README.md; agent explanations themselves remain in frozen reports.
+
+### `bundle_render`
+
+Render the reading guide and portable saved-results summary
+
+[Source](../scripts/build_results_bundle.R)
+
+- `output`: Destination directory or file, as indicated in the description.
+
+**Returns / effects:** Manifest rows for copied templates/tables; writes HTML and Markdown without executing agent code.
+
+### `bundle_manifest`
+
+Inventory every exported payload with size, hash, and provenance
+
+[Source](../scripts/build_results_bundle.R)
+
+- `output`: Destination directory or file, as indicated in the description.
+- `records`: Data frame mapping exported paths to original paths and copy dispositions.
+
+**Returns / effects:** Manifest data frame, also written to MANIFEST.csv; excludes the manifest's own hash.
+
+### `bundle_verify_files`
+
+Check exported file integrity and absence of prohibited content
+
+[Source](../scripts/build_results_bundle.R)
+
+- `output`: Destination directory or file, as indicated in the description.
+- `manifest`: Export inventory data frame containing paths and SHA-256 hashes.
+
+**Returns / effects:** Stops on hash failures, common credential patterns, remaining local paths, or invalid saved artifacts.
+
+### `build_results_bundle`
+
+Build and validate a shareable ZIP for the two completed runs
+
+[Source](../scripts/build_results_bundle.R)
+
+- `output`: Destination directory or file, as indicated in the description.
+
+**Returns / effects:** Creates output directory and adjacent .zip, refusing existing destinations. Originals remain unchanged; requires both local live runs.
+
+### `resolve_bundle_run`
+
+Resolve an explicit run path or a historical result-folder name.
+
+[Source](../scripts/build_results_bundle.R)
+
+- `name`: Absolute/project-relative directory or basename under results/.
+
+**Returns / effects:** Existing normalized run directory.
+
+### `render_bundle_readme`
+
+Render the bundle reading guide without running agent content.
+
+[Source](../scripts/build_results_bundle.R)
+
+- `output`: Export root containing README.md.
+
+**Returns / effects:** Writes a standalone README.html.
+
+## `scripts/check_public_files.R`
+
+### `check_staged_public_files`
+
+Inspect the actual Git index before publishing source
+
+[Source](../scripts/check_public_files.R)
+
+
+**Returns / effects:** Stops on prohibited paths, unusual modes, oversized content or credential patterns; never opens .env.
+
+## `scripts/check_reuse.R`
+
+## `scripts/export_exploration.R`
+
+### `write_exploration_source`
+
+Export exact submitted R bytes without replacing different content
+
+[Source](../scripts/export_exploration.R)
+
+- `code`: Exact exploratory R source submitted to run_r.
+- `output`: Destination directory or file, as indicated in the description.
+
+**Returns / effects:** Creates output or verifies identical existing source; stops on a mismatch.
+
+### `export_exploration_request`
+
+Convert one recorded explore request into an R file and index row
+
+[Source](../scripts/export_exploration.R)
+
+- `path`: Input or destination filesystem path, as indicated in the description.
+- `run_dir`: Saved run directory containing metadata, scenarios, scores, and host-private inputs.
+
+**Returns / effects:** One-row metadata data frame, or NULL for non-exploration modes.
+
+### `exploration_readme`
+
+Describe how archived exploratory snippets depend on their original setup
+
+[Source](../scripts/export_exploration.R)
+
+
+**Returns / effects:** Character lines for exploration-README.md.
+
+### `export_exploration`
+
+Export saved exploration calls and build their index
+
+[Source](../scripts/export_exploration.R)
+
+- `run_dir`: Saved run directory containing metadata, scenarios, scores, and host-private inputs.
+
+**Returns / effects:** Writes .R copies, exploration-index.csv, and a reading guide without executing R snippets or calling models.
+
+## `scripts/preflight.R`
+
+## `scripts/render_api_reference.R`
+
+### `reference_entry_lines`
+
+Convert one adjacent roxygen-style block into a reference entry.
+
+[Source](../scripts/render_api_reference.R)
+
+- `expression`: Parsed named function assignment.
+- `location`: Source reference identifying its definition line.
+- `text`: Source file lines.
+- `path`: Project-relative source path.
+
+**Returns / effects:** Markdown lines documenting the name, parameters, return/effects, and source link.
+
+### `reference_file_lines`
+
+Enumerate named function assignments without evaluating their bodies.
+
+[Source](../scripts/render_api_reference.R)
+
+- `path`: Project-relative R source file.
+
+**Returns / effects:** Markdown file section containing documented top-level functions.
+
+## `scripts/render_report.R`
+
+## `scripts/run_pilot.R`
+
+## `scripts/setup.R`
+
+## `scripts/sharing_helpers.R`
+
+### `publication_secret_pattern`
+
+Define heuristic credential patterns for publication review
+
+[Source](../scripts/sharing_helpers.R)
+
+
+**Returns / effects:** PCRE pattern; this is a format check, not a guarantee that arbitrary secrets are absent.
+
+### `publication_private_path`
+
+Identify generated or private paths that must not be staged
+
+[Source](../scripts/sharing_helpers.R)
+
+- `paths`: Character vector of filesystem paths or names to inspect.
+
+**Returns / effects:** Logical vector aligned to paths; a plain .env.example is permitted outside blocked directories.
+
+### `publication_read_text`
+
+Read bounded text for publication review
+
+[Source](../scripts/sharing_helpers.R)
+
+- `path`: Input or destination filesystem path, as indicated in the description.
+
+**Returns / effects:** File content as a character scalar; refuses files larger than 20 MiB.
+
+### `publication_scan`
+
+Reject common credential formats without reading private key files
+
+[Source](../scripts/sharing_helpers.R)
+
+- `paths`: Character vector of filesystem paths or names to inspect.
+
+**Returns / effects:** TRUE invisibly; on a match reports filenames only, never matching secret text.
+
+### `publication_write_text`
+
+Write exact UTF-8 export content
+
+[Source](../scripts/sharing_helpers.R)
+
+- `text`: Character text to escape, sanitize, or write.
+- `path`: Input or destination filesystem path, as indicated in the description.
+
+**Returns / effects:** Creates parent directories and writes bytes without an added newline.
+
+### `publication_sanitize_paths`
+
+Replace local project, home, and temporary paths in export text
+
+[Source](../scripts/sharing_helpers.R)
+
+- `text`: Character text to escape, sanitize, or write.
+
+**Returns / effects:** Sanitized character text; the original source file is not changed.
+
+### `publication_copy`
+
+Copy an export file and optionally sanitize local paths
+
+[Source](../scripts/sharing_helpers.R)
+
+- `source`: Existing regular source file; symbolic links are rejected.
+- `target`: Export destination file path, never the original source path.
+- `immutable`: Logical; forbid sanitization or alteration of copied artifact bytes.
+
+**Returns / effects:** Invisible disposition: unchanged or path-sanitized. Immutable artifacts must be byte-identical or copying stops.
+
+## `scripts/test_sandbox.R`
+
+## `scripts/test.R`
+
+## `analyses/build_research_note.R`
 
 ### `note_page_break`
 
@@ -974,7 +1617,6 @@ Build the legacy original-run Word research note
 
 ## `analyses/build_rmarkdown_note.R`
 
-
 ### `rmarkdown_note_header`
 
 Define the original-run R Markdown document header
@@ -1003,7 +1645,6 @@ Build the concise original-run R Markdown note and supplement
 **Returns / effects:** Writes generated deliverables and literal prompt excerpts; no model calls.
 
 ## `analyses/compare_welch.R`
-
 
 ### `welch_screen`
 
@@ -1077,7 +1718,6 @@ Build the historical shortlist-versus-Welch comparison
 
 ## `analyses/retry_gateway_session.R`
 
-
 ### `gateway_retry_config`
 
 Require the exact original implementation before a targeted gateway retry
@@ -1127,7 +1767,6 @@ Recover the historical unfrozen HTTP 520 session under strict guards
 **Returns / effects:** Runs only one missing source design and its target evaluation; requires a matching archived failed audit. Not a general retry command.
 
 ## `analyses/summarize_revised_run.R`
-
 
 ### `revised_tool_usage`
 
@@ -1229,7 +1868,6 @@ Verify matching datasets and build the revised-run summaries
 **Returns / effects:** Writes agent-designs.csv, comparison.csv, and Markdown/R Markdown/HTML; reads private truth, never calls models.
 
 ## `analyses/technical_note.R`
-
 
 ### `technical_setting`
 
@@ -1345,8 +1983,53 @@ Format original per-design routes and outcomes
 
 **Returns / effects:** Markdown appendix; depends on manually reviewed original test-type labels.
 
-## `docker/install.R`
+## `analyses/validate_pooled_run.R`
 
+### `reconstruct_count_credit`
+
+Independently reconstruct count credit from per-target result files.
+
+[Source](../analyses/validate_pooled_run.R)
+
+- `setting`: Trusted setting providing the true effect matrix.
+- `rows`: Three successful evaluation-ledger rows for one method.
+- `directory`: Scenario output directory.
+
+**Returns / effects:** List with recovery, overclaims and all-null discoveries.
+
+### `validate_pooled_decisions`
+
+Check selection counts and routes against actual pooled output files.
+
+[Source](../analyses/validate_pooled_run.R)
+
+- `directory`: Scenario directory with candidate/decision tables.
+
+**Returns / effects:** NULL; stops on a mismatched count, winner, tie, or source route.
+
+### `validate_pooled_outputs`
+
+Validate all score definitions, frozen files, and original cyclic comparator values.
+
+[Source](../analyses/validate_pooled_run.R)
+
+- `run_dir`: Completed new run.
+- `reuse_run`: Original revised run used for imports.
+
+**Returns / effects:** TRUE invisibly; checks every method against independently reconstructed counts.
+
+### `validate_pooled_provenance`
+
+Verify imported bytes, c=.9 planning minimality, and new/historical usage separation.
+
+[Source](../analyses/validate_pooled_run.R)
+
+- `run_dir`: Completed new run.
+- `reuse_run`: Historical source run.
+
+**Returns / effects:** NULL; stops on altered imports or unexpected design/accounting counts.
+
+## `docker/install.R`
 
 ### `install_exact`
 
@@ -1360,7 +2043,6 @@ Install a pinned R package while building the image
 **Returns / effects:** Downloads from CRAN or its archive and verifies the installed version; build-time network only.
 
 ## `docker/runtime.R`
-
 
 ### `write_failure`
 
@@ -1414,7 +2096,6 @@ Dispatch container mode, seed execution, and write success status
 
 ## `fixtures/analysis.R`
 
-
 ### `fixture_pvalue`
 
 Calculate one directional Welch p-value for an offline fixture
@@ -1440,325 +2121,3 @@ Execute the deterministic fixture analysis under the artifact contract
 - `alpha`: Family level used directly; callers supply config$alpha/3 for target testing.
 
 **Returns / effects:** Typed per-hypothesis result data frame using FIXTURE_CORRECTION injected by fixture_design.
-
-## `scripts/agent_tool.R`
-
-
-## `scripts/build_image.R`
-
-
-## `scripts/build_reference_pack.R`
-
-
-### `reference_entry`
-
-Describe the provenance and permitted sections of one reference
-
-[Source](../scripts/build_reference_pack.R)
-
-- `id`: Stable reference or section identifier.
-- `source`: Source PDF filename relative to references/.
-- `citation`: Bibliographic citation text.
-- `pages`: Human-readable PDF page locator.
-- `excerpts`: List of explicitly approved excerpt specifications.
-
-**Returns / effects:** List used only by the trusted-host library build script.
-
-### `excerpt_spec`
-
-Specify PDF pages, text boundaries, and optional crop for an excerpt
-
-[Source](../scripts/build_reference_pack.R)
-
-- `id`: Stable reference or section identifier.
-- `first`: First PDF page to extract (one-based).
-- `last`: Last PDF page to extract (one-based).
-- `start`: Literal opening text marker.
-- `finish`: Literal closing text marker, included in the returned excerpt.
-- `crop`: Optional PDF crop coordinates passed to pdftotext (-x, -y, -W, -H).
-
-**Returns / effects:** Named extraction specification list.
-
-### `reference_entries`
-
-Declare the seven approved methodological references
-
-[Source](../scripts/build_reference_pack.R)
-
-
-**Returns / effects:** List of citation/source/extraction specifications, including a summary-only proposal entry.
-
-### `extract_reference_excerpt`
-
-Extract one bounded PDF passage on the trusted host
-
-[Source](../scripts/build_reference_pack.R)
-
-- `source`: Full source PDF path; read only by the trusted-host extraction process.
-- `spec`: Named excerpt specification from excerpt_spec().
-
-**Returns / effects:** Normalized text between explicit markers; requires pdftotext and stops on missing boundaries.
-
-### `build_reference_entry`
-
-Build approved excerpt files and provenance for one reference
-
-[Source](../scripts/build_reference_pack.R)
-
-- `entry`: One reference provenance/extraction record.
-- `root`: Trusted containing directory used for path validation.
-
-**Returns / effects:** Catalog entry with citation, source PDF hash, and named sections; writes extracted text only.
-
-### `build_reference_pack`
-
-Rebuild and hash the curated pack from separately available PDFs
-
-[Source](../scripts/build_reference_pack.R)
-
-
-**Returns / effects:** Writes catalog.json and approved excerpts; checks size limits and reports the verified digest.
-
-## `scripts/build_results_bundle.R`
-
-
-### `bundle_run_files`
-
-Select reviewable results through an explicit path allowlist
-
-[Source](../scripts/build_results_bundle.R)
-
-- `directory`: Filesystem directory holding the relevant inputs or outputs.
-
-**Returns / effects:** Sorted relative filenames; excludes input, private, work, controller logs, and caches.
-
-### `bundle_copy_run`
-
-Copy one completed live run into an export tree
-
-[Source](../scripts/build_results_bundle.R)
-
-- `name`: Saved live-run folder name, relative to results/.
-- `output`: Destination directory or file, as indicated in the description.
-
-**Returns / effects:** Manifest records for copied files; local paths may be sanitized except in immutable artifacts.
-
-### `bundle_check_run`
-
-Verify frozen hashes, exploration exports, and successful scores
-
-[Source](../scripts/build_results_bundle.R)
-
-- `directory`: Filesystem directory holding the relevant inputs or outputs.
-
-**Returns / effects:** No result value; stops unless the saved run has eight scenarios and 24 successful designs.
-
-### `bundle_extra_files`
-
-Copy the methodology and approved reference context
-
-[Source](../scripts/build_results_bundle.R)
-
-- `output`: Destination directory or file, as indicated in the description.
-
-**Returns / effects:** Manifest records for methods documents, current prompts, and curated library files.
-
-### `bundle_examples`
-
-Write editorial descriptions linking two actual revised designs
-
-[Source](../scripts/build_results_bundle.R)
-
-- `output`: Destination directory or file, as indicated in the description.
-
-**Returns / effects:** Creates examples/README.md; agent explanations themselves remain in frozen reports.
-
-### `bundle_render`
-
-Render the reading guide and portable saved-results summary
-
-[Source](../scripts/build_results_bundle.R)
-
-- `output`: Destination directory or file, as indicated in the description.
-
-**Returns / effects:** Manifest rows for copied templates/tables; writes HTML and Markdown without executing agent code.
-
-### `bundle_manifest`
-
-Inventory every exported payload with size, hash, and provenance
-
-[Source](../scripts/build_results_bundle.R)
-
-- `output`: Destination directory or file, as indicated in the description.
-- `records`: Data frame mapping exported paths to original paths and copy dispositions.
-
-**Returns / effects:** Manifest data frame, also written to MANIFEST.csv; excludes the manifest's own hash.
-
-### `bundle_verify_files`
-
-Check exported file integrity and absence of prohibited content
-
-[Source](../scripts/build_results_bundle.R)
-
-- `output`: Destination directory or file, as indicated in the description.
-- `manifest`: Export inventory data frame containing paths and SHA-256 hashes.
-
-**Returns / effects:** Stops on hash failures, common credential patterns, remaining local paths, or invalid saved artifacts.
-
-### `build_results_bundle`
-
-Build and validate a shareable ZIP for the two completed runs
-
-[Source](../scripts/build_results_bundle.R)
-
-- `output`: Destination directory or file, as indicated in the description.
-
-**Returns / effects:** Creates output directory and adjacent .zip, refusing existing destinations. Originals remain unchanged; requires both local live runs.
-
-## `scripts/check_public_files.R`
-
-
-### `check_staged_public_files`
-
-Inspect the actual Git index before publishing source
-
-[Source](../scripts/check_public_files.R)
-
-
-**Returns / effects:** Stops on prohibited paths, unusual modes, oversized content or credential patterns; never opens .env.
-
-## `scripts/export_exploration.R`
-
-
-### `write_exploration_source`
-
-Export exact submitted R bytes without replacing different content
-
-[Source](../scripts/export_exploration.R)
-
-- `code`: Exact exploratory R source submitted to run_r.
-- `output`: Destination directory or file, as indicated in the description.
-
-**Returns / effects:** Creates output or verifies identical existing source; stops on a mismatch.
-
-### `export_exploration_request`
-
-Convert one recorded explore request into an R file and index row
-
-[Source](../scripts/export_exploration.R)
-
-- `path`: Input or destination filesystem path, as indicated in the description.
-- `run_dir`: Saved run directory containing metadata, scenarios, scores, and host-private inputs.
-
-**Returns / effects:** One-row metadata data frame, or NULL for non-exploration modes.
-
-### `exploration_readme`
-
-Describe how archived exploratory snippets depend on their original setup
-
-[Source](../scripts/export_exploration.R)
-
-
-**Returns / effects:** Character lines for exploration-README.md.
-
-### `export_exploration`
-
-Export saved exploration calls and build their index
-
-[Source](../scripts/export_exploration.R)
-
-- `run_dir`: Saved run directory containing metadata, scenarios, scores, and host-private inputs.
-
-**Returns / effects:** Writes .R copies, exploration-index.csv, and a reading guide without executing R snippets or calling models.
-
-## `scripts/preflight.R`
-
-
-## `scripts/render_report.R`
-
-
-## `scripts/run_pilot.R`
-
-
-## `scripts/setup.R`
-
-
-## `scripts/sharing_helpers.R`
-
-
-### `publication_secret_pattern`
-
-Define heuristic credential patterns for publication review
-
-[Source](../scripts/sharing_helpers.R)
-
-
-**Returns / effects:** PCRE pattern; this is a format check, not a guarantee that arbitrary secrets are absent.
-
-### `publication_private_path`
-
-Identify generated or private paths that must not be staged
-
-[Source](../scripts/sharing_helpers.R)
-
-- `paths`: Character vector of filesystem paths or names to inspect.
-
-**Returns / effects:** Logical vector aligned to paths; a plain .env.example is permitted outside blocked directories.
-
-### `publication_read_text`
-
-Read bounded text for publication review
-
-[Source](../scripts/sharing_helpers.R)
-
-- `path`: Input or destination filesystem path, as indicated in the description.
-
-**Returns / effects:** File content as a character scalar; refuses files larger than 20 MiB.
-
-### `publication_scan`
-
-Reject common credential formats without reading private key files
-
-[Source](../scripts/sharing_helpers.R)
-
-- `paths`: Character vector of filesystem paths or names to inspect.
-
-**Returns / effects:** TRUE invisibly; on a match reports filenames only, never matching secret text.
-
-### `publication_write_text`
-
-Write exact UTF-8 export content
-
-[Source](../scripts/sharing_helpers.R)
-
-- `text`: Character text to escape, sanitize, or write.
-- `path`: Input or destination filesystem path, as indicated in the description.
-
-**Returns / effects:** Creates parent directories and writes bytes without an added newline.
-
-### `publication_sanitize_paths`
-
-Replace local project, home, and temporary paths in export text
-
-[Source](../scripts/sharing_helpers.R)
-
-- `text`: Character text to escape, sanitize, or write.
-
-**Returns / effects:** Sanitized character text; the original source file is not changed.
-
-### `publication_copy`
-
-Copy an export file and optionally sanitize local paths
-
-[Source](../scripts/sharing_helpers.R)
-
-- `source`: Existing regular source file; symbolic links are rejected.
-- `target`: Export destination file path, never the original source path.
-- `immutable`: Logical; forbid sanitization or alteration of copied artifact bytes.
-
-**Returns / effects:** Invisible disposition: unchanged or path-sanitized. Immutable artifacts must be byte-identical or copying stops.
-
-## `scripts/test.R`
-
-
-## `scripts/test_sandbox.R`

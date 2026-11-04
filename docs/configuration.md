@@ -20,7 +20,8 @@ do not infer that an unused setting changes behavior.
 | `reference_pack` | `references/agent-pack` | Approved curated library; relative to project root unless absolute. |
 | `baseline_fdr_methods` | `[BH, BY]` | Requested full Welch/oracle FDR variants. If absent, historical default is BY. |
 | `measurements` | `[20, 100, 1000]` | Validator requires these values; criterion-specific filtering creates eight scenarios. |
-| `power_targets` | `[0.2, 0.6]` | Validator requires these values; `c` denotes a planning power target. |
+| `power_targets` | `[0.2, 0.6, 0.9]` | Current twelve-scenario grid; the historical `[0.2, 0.6]` grid remains accepted. `c` is a planning target, not count recovery. |
+| `aggregation` | `pooled_leave_one_out` | Choose frozen non-target algorithms on pooled data at alpha/3; `cycle` retains historical routing. An absent field defaults to cycle for old configs. |
 | `delta` | `1` | Normal mean before taking the absolute nonzero-effect draw. |
 | `tau_squared` | `1` | Variance of that normal draw; must be positive. |
 | `state_probabilities` | `000: .60`, `111: .10`, others `.05` | Named probabilities for all eight subgroup-presence patterns; sum to one. |
@@ -60,6 +61,7 @@ Rscript --vanilla scripts/run_pilot.R [options]
 | `--offline` | Live | Use fixture provider/artifacts; Docker is still required. |
 | `--dry-run` | Off | Print scenarios/session count and return before credentials, Docker or data generation. |
 | `--resume` | Off | Require matching run signature, reuse verified cached designs, and retry unfinished sessions. |
+| `--reuse-run DIR` | None | Explicitly import compatible historical data/designs; source-only Docker rechecks and hash/provenance checks are required. Does not bypass resume identity. |
 
 The scripts parse known flags with small explicit helpers rather than a general
 CLI parser; there is no `--help` implementation or strict rejection of unknown
@@ -85,10 +87,12 @@ same saved data. Do not use it to let agents redesign after seeing target result
 | `Rscript --vanilla scripts/test.R` | Runs host R tests. | No OpenAI or Docker execution. |
 | `poetry run pytest -q` | Runs deterministic Python tests. | No OpenAI calls. |
 | `Rscript --vanilla scripts/test_sandbox.R` | Runs mount/network/credential/timeout canaries; writes ignored isolation metadata. | Working Docker image/daemon. |
+| `Rscript --vanilla scripts/check_reuse.R --reuse-run DIR` | Offline checks of every source design in a complete compatible historical run. | Docker, no model or key loader. |
 | `Rscript --vanilla scripts/render_report.R --run-dir DIR` | Renders saved full report; requires private setting RDS files. | Pandoc, no model. |
 | `Rscript --vanilla scripts/export_exploration.R --run-dir DIR` | Exports existing audit requests to exact `.R` files and an index. | No model or agent-code execution. |
 | `poetry run python -m agents.prompts --output FILE` | Writes a current prompt review copy. | No model or key loader. |
-| `Rscript --vanilla scripts/build_results_bundle.R --output-dir DIR` | Builds new directory/ZIP from both saved live runs; refuses existing destinations. | Saved results, Pandoc; no model. |
+| `Rscript --vanilla scripts/build_results_bundle.R --run-dir DIR --output-dir EXPORT` | Includes the current run and historical comparisons; `--standalone` includes only DIR and supports offline fixtures. Refuses existing export destinations. | Saved results, Pandoc; no model. |
+| `Rscript --vanilla scripts/render_api_reference.R` | Regenerates R API Markdown from adjacent source documentation without evaluating CLI/analysis scripts. | Local R dependencies, no model. |
 | `Rscript --vanilla scripts/check_public_files.R` | Inspects staged Git blobs and prohibited paths. | Local Git, no key loader. |
 
 For an end-to-end software smoke test, use a new destination:

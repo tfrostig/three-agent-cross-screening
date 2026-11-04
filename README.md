@@ -2,8 +2,17 @@
 
 R implements the simulation, sample-size calculation, tests, scoring, and report.
 Python implements isolated PydanticAI design sessions. The first run covers all
-eight scenarios once: 24 agent sessions, one transfer cycle per scenario, and
+initial eight scenarios once. The current grid adds c=0.9: **12 scenarios and
+36 source designs**, with one simulation iteration per scenario and
 **zero additional validation draws**.
+
+The current procedure selects a frozen algorithm for each held-out study by
+comparing the other two agents on their pooled observations. Its primary outcome
+is **study-count recovery**, with zero credit for overstating the number of
+affected studies. See the [pooled-selection guide](docs/pooled-selection.md) for
+the precise score, selection rule, reuse provenance, and outputs. The original
+cyclic agents remain a comparator. Importing the revised run requires only
+**12 new live sessions**; 24 designs are reused with source-only container checks.
 
 ## Documentation
 
@@ -14,6 +23,7 @@ and scoring, with source links and an executable R-only example.
 | Guide | What it explains |
 |:---|:---|
 | [Developer walkthrough](docs/developer-guide.md) | Call sequence, objects, ownership boundaries, failure handling, and where to make changes. |
+| [Pooled selection and count recovery](docs/pooled-selection.md) | Current aggregation, score, historical imports, and extended grid. |
 | [Agent and artifact contracts](docs/agent-api.md) | PydanticAI architecture, each tool, session state, prompts, CSV schemas, and freeze lifecycle. |
 | [Configuration and commands](docs/configuration.md) | Every YAML field, CLI option, required inputs, outputs, and operational limitations. |
 | [R function reference](docs/r-api.md) | Function inputs, returned objects, filesystem effects, and failure behavior. |
@@ -52,12 +62,14 @@ rebuilding its excerpts requires separately obtained source PDFs.
 ## Shared results
 
 The original run is `results/live-first`; the revised run is
-`results/live-revised-20261101`. They use the same generated observations.
+`results/live-revised-20261101`. They use the same generated observations. The
+pooled-selection extension is `results/live-pooled-20261104`; it imports the
+revised designs/data at c=0.2/0.6 and adds c=0.9.
 Saved results are distributed separately from this code repository. To build the
 review bundle from both completed local runs:
 
 ```sh
-Rscript --vanilla scripts/build_results_bundle.R
+Rscript --vanilla scripts/build_results_bundle.R --run-dir results/live-pooled-20261104 --output-dir exports/pooled-results-2026-11-04
 ```
 
 Open the ZIP's `README.html` first. It explains the summary, both runs, frozen
@@ -152,6 +164,17 @@ and docstrings. Consequently this documentation update also changes resume/cache
 identity: inspect historical results as saved, or use their original code checkout
 when resuming them. No historical artifacts or scores were modified.
 
+For the current paired extension, reuse the complete revised local run:
+
+```sh
+Rscript --vanilla scripts/check_reuse.R --reuse-run results/live-revised-20261101
+Rscript --vanilla scripts/run_pilot.R --reuse-run results/live-revised-20261101 --run-dir results/live-pooled-20261104
+```
+
+The default current grid has 36 source designs. Supplying this verified historical
+source imports 24 and calls the model only for twelve new c=0.9 designs. Review
+ZIPs omit private data and cannot replace the complete local reuse source.
+
 To inspect one setting, add e.g. `--scenario fwer_m20_c20`. The default selects
 all eight. `--config <file>` selects another config while preserving the
 one-iteration/no-validation requirements.
@@ -166,11 +189,17 @@ one-iteration/no-validation requirements.
 - Find the smallest n >= 1 for which all three average nonzero-effect powers
   strictly exceed c using the PDF's one-sided alpha/m threshold.
 - Agent testing uses alpha/3, where alpha=0.05.
-- FWER settings: m=20,100; FDR settings: m=100,1000; c=0.2,0.6.
+- FWER settings: m=20,100; FDR settings: m=100,1000; c=0.2,0.6,0.9.
 - Matching m=100 data are reused for the two criteria, with separate sessions.
-- Freeze all three designs before transfer: 1→2, 2→3, 3→1.
+- Freeze all three designs before selection/transfer; the cyclic route remains a comparator.
 - A false directional claim includes a zero target effect or the wrong sign.
 - Score power over all nonzero target coordinates, not just selected coordinates.
+
+The primary study-count recovery averages k/r over measurements with r>0 real
+study effects when the claimed count k<=r, and assigns zero if k>r. It scores
+counts, so wrong studies/signs can still earn credit; directional errors remain
+separate. All-null measurements are excluded from this average and reported in
+error totals. The planning formula still uses the original conventional power.
 
 An empty-signal subgroup makes the specified planning power undefined; record
 the failure without redrawing. n=1 is preserved. `max_n` and

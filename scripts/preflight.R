@@ -15,4 +15,5 @@ python <- processx::run("poetry", c("run", "python", "-c",
   "import pydantic_ai, pydantic, openai; print('PydanticAI dependencies available')"))
 cat(python$stdout)
 cat("Image:", image, "\nModel:", config$openai$model,
-    "\nScenarios:", nrow(scenario_grid(config)), "\nAgent sessions: 24\nValidation draws: 0\n")
+    "\nScenarios:", nrow(scenario_grid(config)), "\nSource designs:", 3 * nrow(scenario_grid(config)),
+    "\nAggregation:", config$aggregation %||% "cycle", "\nValidation draws: 0\n")

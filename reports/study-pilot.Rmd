@@ -1,0 +1,73 @@
+---
+title: "Pooled selection: complete execution report"
+output:
+  html_document:
+    self_contained: true
+    toc: true
+    theme: readable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE,warning=FALSE,message=FALSE)
+```
+
+[Start with the concise summary](summary.html).
+
+Mode: **`r run$mode`**. Model: **`r run$config$openai$model`**.
+There are **`r nrow(read_csv(file.path(run_dir,"scenarios.csv")))` scenarios**,
+one iteration each and no additional validation draws. Pooled candidate counts
+are exploratory selection scores; only held-out results enter the outcome tables.
+All testing uses alpha/3, while sample-size planning uses alpha/m.
+
+## Study-count recovery
+
+For a measurement with r > 0 true study effects and k reported study discoveries,
+credit is k/r if k <= r and zero otherwise. Average equally across measurements
+with r > 0. All-null measurements and directional errors are reported separately.
+The score evaluates counts, so it can award credit for the wrong studies or signs.
+Incomplete target results produce an incomplete score. This single realization
+does not estimate long-run error rates or certify any agent's assumptions.
+
+```{r counts}
+knitr::kable(counts,digits=4)
+```
+
+## Selection decisions
+
+The other two frozen algorithms compete on pooled non-target exposed/control
+observations at the same family level. Choose more unique measurement discoveries;
+ties use the smaller source index. One surviving candidate is used with a degraded
+flag; no surviving candidate produces a failed target. Agents never see these outputs.
+
+```{r decisions}
+knitr::kable(decisions)
+knitr::kable(candidates)
+```
+
+## Held-out outcomes and failures
+
+```{r outcomes}
+knitr::kable(global,digits=4)
+knitr::kable(scores,digits=4)
+```
+
+## Sample-size checks
+
+```{r planning}
+knitr::kable(planning,digits=6)
+```
+
+## New and historical API usage
+
+```{r usage}
+knitr::kable(usage,digits=2)
+```
+
+## Frozen scientific explanations
+
+These are the agents' own explanations, displayed as escaped text. Imported
+designs retain their original recommendations; pooled selection is a host-side step.
+
+```{r explanations, results='asis'}
+for(entry in reports) cat('<h3>',escape_html(entry$label),'</h3><pre>',escape_html(entry$text),'</pre>\n')
+```

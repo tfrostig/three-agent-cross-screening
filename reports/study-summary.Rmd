@@ -1,0 +1,175 @@
+---
+title: "Selecting agent analyses and recovering the number of affected studies"
+output:
+  html_document:
+    self_contained: true
+    keep_md: true
+    theme: readable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+scenarios <- utils::read.csv("scenarios.csv", stringsAsFactors = FALSE)
+counts <- utils::read.csv("study-count-summary.csv", stringsAsFactors = FALSE)
+scores <- utils::read.csv("global-scores.csv", stringsAsFactors = FALSE)
+usage <- utils::read.csv("usage.csv", stringsAsFactors = FALSE)
+planning <- utils::read.csv("planning.csv", stringsAsFactors = FALSE)
+decisions <- utils::read.csv("selection-decisions.csv", stringsAsFactors = FALSE)
+```
+
+```{r fixture-banner, results='asis'}
+if ("mode" %in% names(usage) && any(usage$mode == "offline_fixture"))
+  cat("**OFFLINE SOFTWARE FIXTURE:** deterministic prewritten methods exercise the workflow. These outputs do not assess a live model's scientific analysis.\n\n")
+```
+
+## Experiment and agent architecture
+
+This run has **`r nrow(scenarios)` scenarios** and **`r 3*nrow(scenarios)` source
+designs**: **`r sum(usage$origin == "imported")` imported** from the revised run
+and **`r sum(usage$origin == "generated")` newly generated**. One simulation
+iteration is used per scenario, with no additional validation draws. The grid
+includes planning targets **0.2, 0.6, and 0.9**. Each setting contains three
+independent studies with independent exposed/control samples. A measurement's
+effect can be present in zero, one, two, or three studies, with probabilities
+60%, 15%, 15%, and 10%. The sample-size planning formula is unchanged.
+
+Each PydanticAI agent observes its own study, explores using R, and freezes an
+analysis, directional hypotheses, and scientific explanation. Histories and
+workspaces are separate. Docker isolates R execution from credentials, truth,
+generator code, other workspaces, and the network. All three source attempts
+finish before selection. Imported designs retain their original bytes and are
+rechecked offline on their own source data; their historical usage is separate
+from this run's new API usage. Agent prompts, model, and reference context are unchanged.
+
+## Pooled algorithm selection
+
+For each held-out target, pool the other two studies' exposed samples and,
+separately, their controls. Apply those two studies' frozen algorithms to this
+same pooled pair at **0.05/3**. Choose the algorithm with more unique measurement
+discoveries, breaking ties by the smaller source-agent index. Apply it unchanged
+to the held-out study at **0.05/3** in a fresh container. Failed candidates are
+excluded and flagged; a target fails if both candidates fail. Target observations
+and simulation truth play no part in selection, and no results return to agents.
+
+These pooled discovery counts are exploratory selection scores: each candidate
+was designed using part of the pooled data. Confirmed outcomes come only from
+the held-out target. `agent_pooled_select` is the new procedure; `agent_cycle` is
+the original 1→2, 2→3, 3→1 procedure using the same frozen designs.
+
+Full Welch and known-variance z baselines test both directions for every
+measurement separately in each study. They use Holm for FWER, and BH/BY variants
+for FDR, at the same 0.05/3 level. The oracle z baseline knows variance information
+withheld from agents.
+
+## Primary measure: study-count recovery
+
+For each measurement h, let r_h be the number of studies with a true nonzero
+effect, and let rhat_h be the number of studies reporting a discovery. Each study
+counts at most once, even if both directions are rejected. For r_h > 0:
+
+$$
+U_h = \begin{cases}
+\widehat r_h/r_h, & \widehat r_h \le r_h,\\
+0, & \widehat r_h > r_h.
+\end{cases}
+$$
+
+The scenario score is the **unweighted average over measurements with r_h > 0**.
+If there are three true study effects, claiming one, two, or three earns 1/3,
+2/3, or 1. If there are two and three are claimed, credit is zero. All-null
+measurements are excluded from this average; discoveries for them and other
+overclaims are reported separately. A missing target makes the score incomplete.
+
+This is a **count-only score**: it can award credit even when the particular
+studies or directions are wrong. Directional false discoveries, FDP, and the
+original directional power therefore remain separate secondary outcomes.
+
+```{r recovery}
+value <- function(id,method) {
+  x <- counts$study_count_recovery[counts$scenario==id & counts$method==method]
+  if(length(x)==1L) x else NA_real_
+}
+table <- do.call(rbind,lapply(seq_len(nrow(scenarios)),function(i) {
+  s <- scenarios[i,]; suffix <- if(s$criterion=="FDR") "_bh" else ""
+  data.frame(Scenario=s$id, `Selected agents`=value(s$id,"agent_pooled_select"),
+    `Cyclic agents`=value(s$id,"agent_cycle"), `Welch Holm/BH`=value(s$id,paste0("welch",suffix)),
+    `Welch BY`=if(s$criterion=="FDR") value(s$id,"welch_by") else NA_real_,
+    `Oracle Holm/BH`=value(s$id,paste0("oracle_variance_z",suffix)),check.names=FALSE)
+}))
+knitr::kable(table, digits = 4)
+```
+
+```{r recovery-plot, out.width='100%'}
+if (file.exists("study-count-recovery.png")) knitr::include_graphics("study-count-recovery.png")
+```
+
+## Errors and interpretation
+
+```{r errors}
+selected <- scores[scores$method=="agent_pooled_select",]
+knitr::kable(selected[,intersect(c("scenario","complete","overclaimed_measurements",
+  "all_null_discoveries","false","realized_fdp","power"),names(selected))],digits=4)
+```
+
+The error table above describes the selected agents. Full results for every
+method, including the oracle BY variant, are in the linked CSV tables and full
+report. `false` counts directional false claims; `power` is the original
+directional power and is distinct from study-count recovery.
+
+These are realized outcomes from one iteration, not estimates of long-run FWER
+or FDR. Count recovery is a utility measure, not an error-control guarantee.
+Successful contract checks establish executable structure, not statistical
+validity. The frozen algorithms retain their modeling and multiplicity assumptions.
+
+```{r comparison, results='asis'}
+primary <- counts[counts$method == "agent_pooled_select", ]
+cycle <- counts[counts$method == "agent_cycle", ]
+cycle <- cycle[match(primary$scenario, cycle$scenario), ]
+valid <- is.finite(primary$study_count_recovery) & is.finite(cycle$study_count_recovery)
+cat(sprintf("Pooled selection improved recovery over the cyclic agents in **%d of %d comparable scenarios**, tied in **%d**, and was lower in **%d**.\n\n",
+  sum(primary$study_count_recovery[valid] > cycle$study_count_recovery[valid]), sum(valid),
+  sum(primary$study_count_recovery[valid] == cycle$study_count_recovery[valid]),
+  sum(primary$study_count_recovery[valid] < cycle$study_count_recovery[valid])))
+welch <- vapply(primary$scenario,function(id) {
+  criterion <- scenarios$criterion[match(id,scenarios$id)]
+  value(id,if(criterion=="FDR") "welch_bh" else "welch")
+},numeric(1))
+valid <- is.finite(primary$study_count_recovery) & is.finite(welch)
+cat(sprintf("Against full Welch with the matching primary correction (Holm or BH), pooled selection was higher in **%d**, tied in **%d**, and lower in **%d** scenarios.\n\n",
+  sum(primary$study_count_recovery[valid] > welch[valid]),
+  sum(primary$study_count_recovery[valid] == welch[valid]),
+  sum(primary$study_count_recovery[valid] < welch[valid])))
+```
+
+Selecting the algorithm with more pooled discoveries produced mixed held-out
+results. A larger pooled count does not ensure better recovery in a different
+study. These comparisons use the same frozen designs and observations; they do
+not establish a reliable advantage from one simulation iteration.
+
+## Sample sizes and execution
+
+```{r planning}
+knitr::kable(planning, digits = 5)
+```
+
+`n` is the sample size per exposed/control arm in each study; `c` is the planning
+power target. It is distinct from the reported study-count recovery score.
+
+```{r usage}
+table <- data.frame(Measure=c("Imported designs","New designs","New physical API attempts",
+  "New input tokens","New output tokens","New session time, minutes"),
+  Value=c(sum(usage$origin=="imported"),sum(usage$origin=="generated"),sum(usage$api_attempts),
+    sum(usage$input_tokens),sum(usage$output_tokens),sum(usage$seconds)/60))
+knitr::kable(table,digits=2)
+```
+
+Imported rows show zero new usage and separate historical API attempts. Missing
+usage in a failed session is not evidence of zero provider billing.
+
+[Full report and agent explanations](report.html) · [Selection decisions](selection-decisions.csv) ·
+[Candidate selection scores](selection-candidates.csv) · [Count-recovery table](study-count-summary.csv)
+
+Each scenario's `study-counts/` directory contains per-measurement true counts,
+claimed counts, recovery credit, and overclaim indicators. Each agent's
+`frozen/report.md` contains its recommendations and rationale; `frozen/analysis.R`
+and `audit/exploration/` contain its final and exploratory code.

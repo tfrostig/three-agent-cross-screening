@@ -57,12 +57,20 @@ session_usage <- function(run_dir) {
   files <- list.files(file.path(run_dir, "scenarios"), pattern = "session.json$", recursive = TRUE, full.names = TRUE)
   rows <- lapply(files, function(path) {
     session <- read_json(path)
+    origin_path <- file.path(dirname(dirname(path)), "design-origin.json")
+    imported <- file.exists(origin_path) && read_json(origin_path)$origin == "imported"
     data.frame(session = session$session_id %||% basename(dirname(dirname(path))),
                status = session$status, model = session$model %||% NA_character_,
-               seconds = session$duration_seconds %||% NA_real_,
-               api_attempts = session$physical_api_attempts %||% 0L,
-               input_tokens = session$usage$input_tokens %||% 0L,
-               output_tokens = session$usage$output_tokens %||% 0L)
+               mode = session$mode %||% "unknown",
+               origin = if (imported) "imported" else "generated",
+               seconds = if (imported) 0 else session$duration_seconds %||% NA_real_,
+               api_attempts = if (imported) 0L else session$physical_api_attempts %||% 0L,
+               input_tokens = if (imported) 0L else session$usage$input_tokens %||% 0L,
+               output_tokens = if (imported) 0L else session$usage$output_tokens %||% 0L,
+               historical_api_attempts = if (imported) session$physical_api_attempts %||% NA_integer_ else 0L,
+               historical_seconds = if (imported) session$duration_seconds %||% NA_real_ else 0,
+               historical_input_tokens = if (imported) session$usage$input_tokens %||% NA_integer_ else 0L,
+               historical_output_tokens = if (imported) session$usage$output_tokens %||% NA_integer_ else 0L)
   })
   data.table::rbindlist(rows, fill = TRUE) |> as.data.frame()
 }
@@ -94,6 +102,7 @@ save_report_plots <- function(scores, run_dir) {
 render_pilot_report <- function(run_dir) {
   run_dir <- normalizePath(run_dir, mustWork = TRUE)
   run <- read_json(file.path(run_dir, "run.json"))
+  if (identical(run$config$aggregation, "pooled_leave_one_out")) return(render_study_report(run_dir))
   scores <- read_csv(file.path(run_dir, "scores.csv"))
   environment <- new.env(parent = globalenv())
   environment$run <- run

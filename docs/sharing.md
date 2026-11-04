@@ -1,5 +1,12 @@
 # Sharing code and results
 
+For the current pooled-selection extension, package the new run and historical
+comparisons with `--run-dir results/live-pooled-20261104 --output-dir exports/pooled-results-2026-11-04`.
+The reading guide points to its primary study-count recovery summary. Counts are
+derived from the included scenario grid rather than assuming eight scenarios or
+24 designs. Use `--standalone --run-dir DIR` to package a single offline fixture.
+See [the extension guide](https://github.com/tfrostig/three-agent-cross-screening/blob/main/docs/pooled-selection.md) for imports and selection provenance.
+
 The public repository contains implementation, current prompts, configuration,
 lockfiles, offline checks, curated references, and report templates. Saved runs
 are distributed separately so that credentials, synthetic input matrices, private

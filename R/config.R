@@ -30,7 +30,9 @@ validate_config <- function(config) {
             config$alpha > 0, config$alpha < 1,
             config$tau_squared > 0, config$max_n >= 1,
             identical(sort(as.integer(config$measurements)), c(20L, 100L, 1000L)),
-            identical(sort(as.numeric(config$power_targets)), c(0.2, 0.6)))
+            any(vapply(list(c(0.2, 0.6), c(0.2, 0.6, 0.9)), function(x)
+              identical(sort(as.numeric(config$power_targets)), x), logical(1))),
+            (config$aggregation %||% "cycle") %in% c("cycle", "pooled_leave_one_out"))
   probs <- unlist(config$state_probabilities)
   stopifnot(setequal(names(probs), c("000", "001", "010", "011", "100", "101", "110", "111")),
             all(is.finite(probs)), all(probs >= 0), abs(sum(probs) - 1) < 1e-12)
@@ -46,7 +48,7 @@ validate_config <- function(config) {
 #' @return The supplied value or the default; NA and empty vectors are preserved.
 `%||%` <- function(value, default) if (is.null(value)) default else value
 
-#' Expand the permitted eight scenarios and shared dataset IDs
+#' Expand the permitted scenarios and shared dataset IDs
 #'
 #' @param config Validated configuration list from load_config(), unless a SessionConfig is
 #'   explicitly noted.

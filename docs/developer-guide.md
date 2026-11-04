@@ -4,6 +4,11 @@ This guide explains how the implementation works and how to review or extend it.
 Read [the contracts](agent-api.md) when changing an interface and
 [configuration](configuration.md) before running a command.
 
+The current default adds pooled leave-one-study-out algorithm selection and
+study-count recovery. Read [the extension guide](pooled-selection.md) alongside
+this walkthrough. The freeze, isolation and source-session interfaces below are
+unchanged; cyclic transfer is retained as the `agent_cycle` comparator.
+
 ## Start at the two entry points
 
 [`scripts/run_pilot.R`](../scripts/run_pilot.R) is the experiment entry point. It

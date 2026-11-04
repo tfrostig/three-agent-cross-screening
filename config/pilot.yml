@@ -5,7 +5,8 @@ additional_validation_draws: 0
 reference_pack: references/agent-pack
 baseline_fdr_methods: [BH, BY]
 measurements: [20, 100, 1000]
-power_targets: [0.2, 0.6]
+power_targets: [0.2, 0.6, 0.9]
+aggregation: pooled_leave_one_out
 delta: 1
 tau_squared: 1
 state_probabilities:

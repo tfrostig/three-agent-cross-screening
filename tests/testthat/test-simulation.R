@@ -1,9 +1,9 @@
-testthat::test_that("all eight scenarios have the expected pairing", {
+testthat::test_that("all twelve scenarios have the expected pairing", {
   config <- load_config(file.path(project_root, "config/pilot.yml"))
   scenarios <- scenario_grid(config)
-  testthat::expect_equal(nrow(scenarios), 8L)
-  testthat::expect_equal(length(unique(scenarios$data_id)), 6L)
-  testthat::expect_equal(sum(scenarios$m == 100), 4L)
+  testthat::expect_equal(nrow(scenarios), 12L)
+  testthat::expect_equal(length(unique(scenarios$data_id)), 9L)
+  testthat::expect_equal(sum(scenarios$m == 100), 6L)
   testthat::expect_true(all(scenarios$m[scenarios$criterion == "FWER"] %in% c(20, 100)))
 })
 

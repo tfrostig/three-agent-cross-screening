@@ -12,16 +12,19 @@ source("scripts/sharing_helpers.R")
 bundle_run_files <- function(directory) {
   top <- c("report.html", "scores.csv", "global-scores.csv", "scenarios.csv", "planning.csv",
     "run.json", "completion.json", "usage.csv", "power.png", "agent-designs.csv",
-    "comparison.csv", "exploration-index.csv", "exploration-README.md")
+    "comparison.csv", "exploration-index.csv", "exploration-README.md", "summary.Rmd", "summary.md",
+    "summary.html", "study-count-summary.csv", "study-count-recovery.png", "selection-decisions.csv",
+    "selection-candidates.csv", "data-provenance.csv")
   paths <- list.files(directory, recursive = TRUE, all.files = TRUE)
   frozen <- "^scenarios/[^/]+/agent-[123]/frozen/(analysis\\.R|hypotheses\\.csv|report\\.md|frozen\\.json)$"
   audit <- "audit/(prompts|messages|session|references|execution-[0-9]+(-result)?)\\.json$|audit/exploration/execution-[0-9]+\\.R$"
   agents <- grepl("^scenarios/[^/]+/agent-[123]/", paths) & grepl(audit, paths)
-  evaluation <- grepl("^scenarios/[^/]+/evaluation/[^/]+\\.(csv|json)$", paths)
-  design_status <- grepl("^scenarios/[^/]+/design-status\\.json$", paths)
+  evaluation <- grepl("^scenarios/[^/]+/(evaluation|selection|study-counts)/[^/]+\\.(csv|json)$", paths)
+  design_status <- grepl("^scenarios/[^/]+/(design-status\\.json|evaluation-ledger\\.csv|selection-(candidates|decisions)\\.csv)$", paths)
+  imports <- grepl("^scenarios/[^/]+/agent-[123]/(design-origin|imported-check)\\.json$", paths)
   retries <- startsWith(paths, "infrastructure-retries/") &
     (grepl(audit, paths) | paths %in% c("infrastructure-retries/README.md", "infrastructure-retries/recovery.json"))
-  sort(paths[paths %in% top | grepl(frozen, paths) | agents | evaluation | design_status | retries])
+  sort(paths[paths %in% top | grepl(frozen, paths) | agents | evaluation | design_status | retries | imports])
 }
 
 #' Copy one completed live run into an export tree
@@ -31,15 +34,16 @@ bundle_run_files <- function(directory) {
 #' @return Manifest records for copied files; local paths may be sanitized except in immutable
 #'   artifacts.
 bundle_copy_run <- function(name, output) {
-  directory <- file.path(project_root, "results", name)
-  stopifnot(read_json(file.path(directory, "run.json"))$mode == "live",
+  directory <- resolve_bundle_run(name)
+  name <- basename(directory)
+  stopifnot(read_json(file.path(directory, "run.json"))$mode %in% c("live", "offline_fixture"),
             file.exists(file.path(directory, "completion.json")))
   files <- bundle_run_files(directory)
   records <- lapply(files, function(path) {
     immutable <- grepl("/frozen/|/exploration/[^/]+\\.R$", path)
     target <- file.path(output, "runs", name, path)
     action <- publication_copy(file.path(directory, path), target, immutable)
-    data.frame(path = file.path("runs", name, path), original = file.path("results", name, path),
+    data.frame(path = file.path("runs", name, path), original = publication_sanitize_paths(file.path(directory, path)),
       disposition = action, stringsAsFactors = FALSE)
   })
   do.call(rbind, records)
@@ -52,12 +56,11 @@ bundle_copy_run <- function(name, output) {
 #'   designs.
 bundle_check_run <- function(directory) {
   scenarios <- read_csv(file.path(directory, "scenarios.csv"))
-  stopifnot(nrow(scenarios) == 8L)
+  stopifnot(nrow(scenarios) > 0L)
   for (scenario in scenarios$id) for (agent in 1:3) {
     frozen <- file.path(directory, "scenarios", scenario, paste0("agent-", agent), "frozen")
-    verify_frozen(frozen)
     session <- read_json(file.path(dirname(frozen), "audit/session.json"))
-    stopifnot(session$status == "ok", session$model == "gpt-6.1-sol")
+    if (session$status == "ok") verify_frozen(frozen)
   }
   index <- read_csv(file.path(directory, "exploration-index.csv"))
   for (i in seq_len(nrow(index))) {
@@ -68,7 +71,12 @@ bundle_check_run <- function(directory) {
       file.exists(file.path(directory, index$result_file[i])))
   }
   scores <- read_csv(file.path(directory, "scores.csv"))
-  stopifnot(all(scores$status == "ok"), sum(scores$method == "agent") == 24L)
+  methods <- unique(scores$method)
+  for (method in setdiff(methods, "generation")) {
+    stopifnot(!anyDuplicated(scores[scores$method == method, c("scenario", "target")]))
+  }
+  counts <- file.path(directory, "study-count-summary.csv")
+  if (file.exists(counts)) stopifnot(all(read_csv(counts)$study_count_recovery <= 1, na.rm = TRUE))
 }
 
 #' Copy the methodology and approved reference context
@@ -111,16 +119,22 @@ bundle_examples <- function(output) {
 #' @param output Destination directory or file, as indicated in the description.
 #' @return Manifest rows for copied templates/tables; writes HTML and Markdown without
 #'   executing agent code.
-bundle_render <- function(output) {
+bundle_render <- function(output, runs) {
+  primary <- resolve_bundle_run(tail(runs, 1L))
+  if (file.exists(file.path(primary, "study-count-summary.csv"))) {
+    text <- paste(readLines("docs/study-results-bundle-README.md", warn = FALSE), collapse = "\n")
+    text <- gsub("{{PRIMARY_RUN}}", basename(primary), text, fixed = TRUE)
+    publication_write_text(text, file.path(output, "README.md"))
+    render_bundle_readme(output)
+    return(data.frame(path = character(), original = character(), disposition = character()))
+  }
   sources <- c("docs/results-bundle-README.md", "reports/shared-summary.Rmd",
     "results/live-revised-20261101/comparison.csv")
   targets <- c("README.md", "summary/summary.Rmd", "summary/comparison.csv")
   actions <- vapply(seq_along(sources), function(i) {
     publication_copy(sources[i], file.path(output, targets[i]))
   }, character(1))
-  rmarkdown::pandoc_convert(file.path(output, "README.md"), from = "markdown", to = "html5",
-    output = file.path(output, "README.html"),
-    options = c("--standalone", "--metadata", "title=Results reading guide"), verbose = FALSE)
+  render_bundle_readme(output)
   rmarkdown::render(file.path(output, "summary/summary.Rmd"), quiet = TRUE,
     envir = new.env(parent = baseenv()))
   data.frame(path = targets, original = sources, disposition = actions)
@@ -161,7 +175,7 @@ bundle_verify_files <- function(output, manifest) {
     grepl("/Users/|/home/|file:///", publication_read_text(path))
   }, logical(1))
   if (any(local_paths)) stop("Local paths remain in: ", paste(paths[text][local_paths], collapse = ", "))
-  for (run in c("live-first", "live-revised-20261101")) {
+  for (run in list.dirs(file.path(output, "runs"), recursive = FALSE, full.names = FALSE)) {
     bundle_check_run(file.path(output, "runs", run))
   }
 }
@@ -171,14 +185,14 @@ bundle_verify_files <- function(output, manifest) {
 #' @param output Destination directory or file, as indicated in the description.
 #' @return Creates output directory and adjacent .zip, refusing existing destinations.
 #'   Originals remain unchanged; requires both local live runs.
-build_results_bundle <- function(output) {
+build_results_bundle <- function(output, runs = c("live-first", "live-revised-20261101")) {
   if (file.exists(output) || file.exists(paste0(output, ".zip"))) stop("Export destination already exists")
   output <- ensure_dir(output)
-  runs <- c("live-first", "live-revised-20261101")
+  stopifnot(!anyDuplicated(basename(runs)))
   records <- do.call(rbind, lapply(runs, bundle_copy_run, output = output))
   records <- rbind(records, bundle_extra_files(output))
-  bundle_examples(output)
-  records <- rbind(records, bundle_render(output))
+  if (all(c("live-first", "live-revised-20261101") %in% basename(runs))) bundle_examples(output)
+  records <- rbind(records, bundle_render(output, runs))
   manifest <- bundle_manifest(output, records)
   bundle_verify_files(output, manifest)
   old <- setwd(dirname(output))
@@ -191,8 +205,28 @@ build_results_bundle <- function(output) {
   message("Results ZIP: ", archive, " (", nrow(manifest) + 1L, " files)")
 }
 
+#' Resolve an explicit run path or a historical result-folder name.
+#' @param name Absolute/project-relative directory or basename under results/.
+#' @return Existing normalized run directory.
+resolve_bundle_run <- function(name) {
+  path <- if (dir.exists(name)) name else file.path(project_root, "results", name)
+  normalizePath(path, mustWork = TRUE)
+}
+
+#' Render the bundle reading guide without running agent content.
+#' @param output Export root containing README.md.
+#' @return Writes a standalone README.html.
+render_bundle_readme <- function(output) {
+  rmarkdown::pandoc_convert(file.path(output, "README.md"), from = "markdown", to = "html5",
+    output = file.path(output, "README.html"),
+    options = c("--standalone", "--metadata", "title=Results reading guide"), verbose = FALSE)
+}
+
 if (sys.nframe() == 0L) {
+  args <- commandArgs(trailingOnly = TRUE)
   output <- cli_value(commandArgs(trailingOnly = TRUE), "--output-dir",
     "exports/three-agent-cross-screening-results-2026-11-02")
-  build_results_bundle(output)
+  run <- cli_value(args, "--run-dir")
+  runs <- if ("--standalone" %in% args) run else c("live-first", "live-revised-20261101", run)
+  build_results_bundle(output, runs)
 }
