@@ -2,6 +2,7 @@ FROM rocker/r-ver:4.6.0@sha256:6f05a1a8b8c52328f181593923909b01cbfd14c9caea93bf7
 COPY docker/install.R /opt/runner/install.R
 RUN Rscript --vanilla /opt/runner/install.R && rm /opt/runner/install.R
 COPY R/contracts.R /opt/runner/contracts.R
+COPY R/document_contracts.R /opt/runner/document_contracts.R
 COPY docker/runtime.R /opt/runner/runtime.R
 RUN mkdir -p /work /output && chmod 1777 /work /output
 ENV HOME=/tmp R_ENVIRON_USER=/dev/null R_PROFILE_USER=/dev/null

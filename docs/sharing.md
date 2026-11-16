@@ -67,3 +67,9 @@ filenames before committing and rerun this check for later publications.
 
 Only source files belong in the public repository. Share the results ZIP directly
 with collaborators; uploading it to a public GitHub release is a separate action.
+
+Current report templates obtain coverage, findings, family counts, usage and
+comparison tables from saved local CSV/JSON files at rendering time. Saved-run
+numbers are not embedded in the public template. Older one-off historical report
+drafts under `analyses/replicability*` and `analyses/summarize_document_run.R`
+remain local and are ignored because they contain saved-run findings.

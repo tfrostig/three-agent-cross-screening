@@ -260,3 +260,12 @@ See `docs/isolation.md` for the trust model. Main entry points are
 
 Start with preflight and the offline run. A complete live run requires a working
 Docker daemon, network access to OpenAI, valid credentials, and model access.
+
+## Document-based protocol (v2)
+
+The new workflow uses Section 2.1 of the revised PDF unchanged, one instruction
+block, self-contained R designs, data-free structural checks, and deterministic
+pooled selection/held-out evaluation. See [the workflow and interface guide](docs/document-workflow.md)
+for prompts, validation, failure handling, scoring, and offline/live commands.
+Historical protocols and results remain distinct. No paid calls are needed for
+the complete fixture run.

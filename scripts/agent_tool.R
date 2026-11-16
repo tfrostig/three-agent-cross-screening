@@ -4,7 +4,8 @@
 source("R/bootstrap.R")
 args <- commandArgs(trailingOnly = TRUE)
 request <- read_json(args[1])
-result <- tryCatch(execute_sandbox(request), error = function(error) {
+source("R/document_sandbox.R")
+result <- tryCatch(if (startsWith(request$mode, "document-")) doc_sandbox(request) else execute_sandbox(request), error = function(error) {
   list(status = "failed", error = conditionMessage(error))
 })
 write_json(result, args[2])

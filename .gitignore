@@ -48,3 +48,11 @@ docker/isolation-checks.json
 *_cache/
 *_files/
 *.log
+
+docker/document-image-manifest.json
+
+# Local historical report drafts contain saved-run findings.
+analyses/replicability-template.md
+analyses/replicability_comparison.R
+analyses/replicability_text.R
+analyses/summarize_document_run.R

@@ -49,7 +49,7 @@ def load_session(path: Path) -> SessionConfig:
     return config
 
 
-async def live_resources(config):
+async def live_resources(config, *, exported_key: str | None = None):
     """Create one Responses model, owned client, and counted transport.
 
     Args:
@@ -59,7 +59,7 @@ async def live_resources(config):
         Tuple of model, AsyncOpenAI client, and CountedTransport. The caller owns
         client cleanup; SDK retries are disabled so physical attempts are counted.
     """
-    key = read_api_key(config.project_root)
+    key = read_api_key(config.project_root) if exported_key is None else exported_key
     if not config.model:
         raise ValueError("Configure an explicit OpenAI model")
     transport = CountedTransport(config.openai["request_limit"], config.openai["transient_retries"])

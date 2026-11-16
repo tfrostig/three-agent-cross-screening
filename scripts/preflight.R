@@ -3,8 +3,14 @@
 
 source("R/bootstrap.R")
 args <- commandArgs(trailingOnly = TRUE)
-config <- load_config(cli_value(args, "--config", "config/pilot.yml"))
+config <- yaml::read_yaml(cli_value(args, "--config", "config/pilot.yml"))
 offline <- "--offline" %in% args
+if (identical(config$protocol, "document-v2")) {
+  source("R/document_pipeline.R")
+  doc_preflight(config, offline)
+  quit(status = 0)
+}
+validate_config(config)
 require_packages(c("jsonlite", "yaml", "digest", "data.table", "processx", "ggplot2", "rmarkdown"))
 if (!rmarkdown::pandoc_available()) stop("Pandoc is required")
 references <- reference_pack_record(config)

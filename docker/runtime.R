@@ -2,6 +2,7 @@
 #'   observations and code; writes status/result under /output.
 
 source("/opt/runner/contracts.R")
+source("/opt/runner/document_contracts.R")
 
 #' Record a container-side analysis error
 #'
@@ -58,9 +59,12 @@ run_analysis <- function(pair, alpha) {
 main <- function(args) {
   setwd("/work")
   set.seed(as.integer(args[3]))
-  pair <- load_pair()
-  if (args[1] == "explore") run_exploration(pair)
-  else run_analysis(pair, as.numeric(args[2]))
+  if (startsWith(args[1], "document-")) doc_runtime(args[1], as.numeric(args[2]))
+  else {
+    pair <- load_pair()
+    if (args[1] == "explore") run_exploration(pair)
+    else run_analysis(pair, as.numeric(args[2]))
+  }
   jsonlite::write_json(list(status = "ok"), "/output/status.json", auto_unbox = TRUE)
 }
 

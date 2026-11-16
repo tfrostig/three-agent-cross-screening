@@ -5,3 +5,4 @@
 !docker/install.R
 !R/
 !R/contracts.R
+!R/document_contracts.R

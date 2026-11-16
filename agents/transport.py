@@ -30,6 +30,7 @@ class CountedTransport(httpx.AsyncBaseTransport):
         self.limit = limit
         self.retries = retries
         self.attempts = 0
+        self.attempt_observer = None
         self.transport = transport or httpx.AsyncHTTPTransport(retries=0)
 
     async def handle_async_request(self, request):
@@ -54,6 +55,8 @@ class CountedTransport(httpx.AsyncBaseTransport):
             if self.attempts >= self.limit:
                 raise RuntimeError("Physical API-attempt limit reached")
             self.attempts += 1
+            if self.attempt_observer is not None:
+                self.attempt_observer(self.attempts)
             try:
                 response = await self.transport.handle_async_request(request)
             except httpx.TransportError:
