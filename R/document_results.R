@@ -199,7 +199,7 @@ doc_write_results <- function(run_dir, summary, failures) {
   lines <- doc_results_text(run_dir, summary, failures, inventory)
   lines <- c(lines, doc_history(run_dir, summary), readLines(file.path(project_root, "docs/document-metrics.md")),
     "## Appendix: exact scientific prompt",
-    paste0("<pre>", doc_escape(paste(readLines("prompts/document-20261111.txt", warn = FALSE), collapse = "\n")), "</pre>"),
+    paste0("<pre>", doc_escape(paste(readLines("prompts/system.txt", warn = FALSE), collapse = "\n")), "</pre>"),
     "## Appendix: complete model-visible technical instructions",
     paste0("<pre>", doc_escape(paste(readLines(file.path(run_dir, "prompt-preview.md")), collapse = "\n")), "</pre>"),
     doc_method_examples(inventory, run_dir), doc_agent_appendix(inventory, run_dir))

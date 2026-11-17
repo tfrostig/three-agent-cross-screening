@@ -16,7 +16,7 @@ testthat::test_that("committed source checkpoints skip the model and interrupted
 })
 
 testthat::test_that("resume refuses changed configuration and modified input preview", {
-  config <- yaml::read_yaml(file.path(project_root,"config/document-pilot.yml"))
+  config <- yaml::read_yaml(file.path(project_root,"config/pilot.yml"))
   grid <- doc_grid(config)
   options <- list(run_dir=tempfile("resume-test-"),resume=FALSE,offline=TRUE)
   original <- doc_preview

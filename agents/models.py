@@ -1,33 +1,10 @@
-"""Typed host/session and artifact contracts.
-
-DesignManifest is the strict model-visible output schema; its class description
-is intentionally preserved. SessionConfig contains source paths but no truth.
-See docs/agent-api.md for the complete tool and artifact field contracts."""
-
-from __future__ import annotations
+"""Typed source-only session configuration and tool execution results."""
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
-
-if TYPE_CHECKING:
-    from agents.references import ReferenceLibrary
-
-
-class DesignManifest(BaseModel):
-    """Scientific description of a frozen R analysis."""
-
-    model_config = ConfigDict(extra="forbid", strict=True)
-    script_file: Literal["analysis.R"]
-    hypotheses_file: Literal["hypotheses.csv"]
-    report_file: Literal["report.md"]
-    test_summary: str = Field(min_length=1)
-    multiplicity_summary: str = Field(min_length=1)
-    assumptions: list[str]
-    limitations: list[str]
-
+from pydantic import BaseModel
 
 class ToolResult(BaseModel):
     """Bounded result of a container execution or contract check."""
@@ -57,8 +34,6 @@ class SessionConfig:
         sandbox: Image, CPU, memory, and execution timeout configuration.
         limits: R-call, tool-call, repair, and output budgets.
         openai: Provider request, retry, timeout, and output-token limits.
-        reference_pack: Optional trusted curated-library path.
-        reference_digest: Optional expected catalog SHA-256.
     """
     session_id: str
     m: int
@@ -73,8 +48,6 @@ class SessionConfig:
     sandbox: dict
     limits: dict
     openai: dict
-    reference_pack: Path | None = None
-    reference_digest: str | None = None
 
 
 @dataclass
@@ -88,14 +61,9 @@ class AgentDependencies:
         repairs: Failed contract/finalization checks counted against the repair cap.
         checked_hashes: Artifact digests from the latest successful check; cleared
             after a tool write or failed check.
-        references: Verified session-local methodological reference snapshot.
     """
     config: SessionConfig
     runner: object
     r_executions: int = 0
     repairs: int = 0
     checked_hashes: dict[str, str] = field(default_factory=dict)
-    references: ReferenceLibrary | None = None
-
-
-ARTIFACT_NAMES = frozenset({"analysis.R", "hypotheses.csv", "report.md"})

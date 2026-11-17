@@ -64,16 +64,18 @@ class RRunner:
         self.calls = 0
 
     def execute(self, mode: str, code: str = "") -> ToolResult:
-        """Delegate one explore/check request to the trusted Docker wrapper.
+        """Delegate one exploration request to the trusted Docker wrapper.
 
         Args:
-            mode: explore or check; target evaluation is controlled separately by R.
-            code: R source for explore; ignored for artifact checking.
+            mode: Must be explore; final inspection/evaluation has separate interfaces.
+            code: R source for exploration.
 
         Returns:
             Bounded ToolResult. Writes numbered request/result audits and records
             an independent execution seed; each call starts a fresh container.
         """
+        if mode != "explore":
+            raise ValueError("Only exploratory execution is supported here")
         self.calls += 1
         config = self.config
         config.audit_dir.mkdir(parents=True, exist_ok=True)

@@ -1,12 +1,12 @@
 source(file.path(project_root, "R/document_pipeline.R"))
 
 testthat::test_that("document grid, planning and old stream assignments are stable", {
-  cfg <- yaml::read_yaml(file.path(project_root, "config/document-pilot.yml"))
+  cfg <- yaml::read_yaml(file.path(project_root, "config/pilot.yml"))
   doc_config(cfg)
   grid <- doc_grid(cfg)
   testthat::expect_equal(nrow(grid), 24)
   testthat::expect_equal(length(unique(grid$data_id)), 18)
-  testthat::expect_equal(setting_stream_ids(cfg), setting_stream_ids(load_config(file.path(project_root, "config/pilot.yml"))))
+  testthat::expect_equal(setting_stream_ids(cfg), c("m100_c20","m100_c60","m1000_c20","m1000_c60","m20_c20","m20_c60","m100_c90","m1000_c90","m20_c90"))
   testthat::expect_error(smallest_sample(matrix(0, 3, 2), .2, .05), "undefined_power")
 })
 

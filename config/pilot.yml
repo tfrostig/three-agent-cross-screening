@@ -1,25 +1,19 @@
-# Legacy workflow: select explicitly with --config config/pilot.yml.
-# The current CLI default is config/document-pilot.yml.
 seed: 20261016
 alpha: 0.05
 iterations_per_scenario: 1
 additional_validation_draws: 0
-reference_pack: references/agent-pack
-baseline_fdr_methods: [BH, BY]
-measurements: [20, 100, 1000]
-power_targets: [0.2, 0.6, 0.9]
+baseline_fdr_methods: BH
+measurements:
+- 20
+- 100
+- 1000
+power_targets:
+- 0.2
+- 0.6
+- 0.9
 aggregation: pooled_leave_one_out
 delta: 1
 tau_squared: 1
-state_probabilities:
-  '000': 0.60
-  '001': 0.05
-  '010': 0.05
-  '011': 0.05
-  '100': 0.05
-  '101': 0.05
-  '110': 0.05
-  '111': 0.10
 max_n: 100000
 max_dataset_cells: 20000000
 openai:
@@ -34,8 +28,29 @@ agent:
   tool_calls_limit: 32
   max_tool_output_bytes: 32768
 sandbox:
-  image: cross-screening-r:4.6.0
+  image: cross-screening-r:document-v2
   timeout_seconds: 60
   memory: 2g
   cpus: 1
 results_directory: results
+protocol: document-v2
+scientific_prompt: prompts/system.txt
+regimes:
+  dense:
+    '000': 0.6
+    '001': 0.05
+    '010': 0.05
+    '011': 0.05
+    '100': 0.05
+    '101': 0.05
+    '110': 0.05
+    '111': 0.1
+  sparse:
+    '000': 0.9
+    '001': 0.008333333333333333
+    '010': 0.008333333333333333
+    '011': 0.008333333333333333
+    '100': 0.008333333333333333
+    '101': 0.008333333333333333
+    '110': 0.008333333333333333
+    '111': 0.05

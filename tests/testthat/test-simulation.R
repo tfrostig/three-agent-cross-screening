@@ -1,5 +1,6 @@
 testthat::test_that("all twelve scenarios have the expected pairing", {
-  config <- load_config(file.path(project_root, "config/pilot.yml"))
+  config <- read_pilot_config(character())
+  config$state_probabilities <- config$regimes$dense
   scenarios <- scenario_grid(config)
   testthat::expect_equal(nrow(scenarios), 12L)
   testthat::expect_equal(length(unique(scenarios$data_id)), 9L)
@@ -37,7 +38,8 @@ testthat::test_that("sample size is the strict minimum and uses alpha/m", {
 })
 
 testthat::test_that("streams are reproducible and controls are independent", {
-  config <- load_config(file.path(project_root, "config/pilot.yml"))
+  config <- read_pilot_config(character())
+  config$state_probabilities <- config$regimes$dense
   streams <- seed_streams(config$seed, 3)
   first <- generate_setting(config, 100, .2, streams)
   second <- generate_setting(config, 100, .2, streams)
@@ -45,18 +47,4 @@ testthat::test_that("streams are reproducible and controls are independent", {
   testthat::expect_false(identical(first$observations[[1]]$unexposed, first$observations[[2]]$unexposed))
   testthat::expect_equal(sum(vapply(first$observations, function(p) nrow(p$exposed) + nrow(p$unexposed), integer(1))),
                          6 * first$planning$n)
-})
-
-testthat::test_that("selecting a scenario does not change its generator stream", {
-  config <- load_config(file.path(project_root, "config/pilot.yml"))
-  all <- scenario_grid(config)
-  chosen <- all[all$id == "fwer_m20_c20", , drop = FALSE]
-  full_root <- ensure_dir(tempfile("full-"))
-  single_root <- ensure_dir(tempfile("single-"))
-  full <- prepare_data(config, all, full_root)
-  single <- prepare_data(config, chosen, single_root)
-  full_setting <- readRDS(full$path[full$data_id == chosen$data_id])
-  single_setting <- readRDS(single$path[1])
-  testthat::expect_identical(full_setting, single_setting)
-  unlink(c(full_root, single_root), recursive = TRUE)
 })

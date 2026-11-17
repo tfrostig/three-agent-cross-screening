@@ -366,7 +366,7 @@ reader_build <- function(origin,destination) {
   reader_guide(destination)
   write_csv(data.frame(specification_name=unname(reader_measure_names()),csv_field=names(reader_measure_names())),
     file.path(destination,"specification-terms.csv"))
-  write_json(list(source=read_json("prompts/document-20261111.provenance.json"),measures_section="3",
+  write_json(list(source=read_json("prompts/system.provenance.json"),measures_section="3",
     additional_measure="Study-count recovery was agreed later; see Supplement I"),file.path(destination,"specification-provenance.json"))
   write_json(list(origin=origin,change="Document structure and presentation only; numerical results, prompts and agent artifacts unchanged"),
     file.path(destination,"reader-provenance.json"))

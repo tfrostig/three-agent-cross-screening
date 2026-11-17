@@ -7,7 +7,7 @@ source(file.path(project_root, "R/document_results.R"))
 #' @param config Document configuration.
 doc_config <- function(config) {
   stopifnot(config$protocol == "document-v2", config$alpha == 0.05,
-    identical(config$scientific_prompt, "prompts/document-20261111.txt"),
+    identical(config$scientific_prompt, "prompts/system.txt"),
     identical(names(config$regimes), c("dense", "sparse")))
   prompt <- file.path(project_root, config$scientific_prompt)
   stopifnot(file_hash(prompt) == read_json(sub("[.]txt$", ".provenance.json", prompt))$prompt_sha256)

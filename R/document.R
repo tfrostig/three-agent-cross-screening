@@ -1,4 +1,4 @@
-#' Document-v2 orchestration, preserving the historical reader and pipeline.
+#' Current design orchestration with hash-verified observation import support.
 source(file.path(project_root, "R/document_contracts.R"))
 source(file.path(project_root, "R/document_sandbox.R"))
 

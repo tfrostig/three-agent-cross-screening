@@ -36,22 +36,6 @@ run_exploration <- function(pair) {
   sys.source("/control/code.R", envir = scope)
 }
 
-#' Execute the staged reusable analysis and validate its output
-#'
-#' @param pair List with exposed and unexposed numeric observation matrices.
-#' @param alpha Family level used directly; callers supply config$alpha/3 for target testing.
-#' @return Writes /output/result.csv; checks the declared frozen family and result schema.
-run_analysis <- function(pair, alpha) {
-  hypotheses <- read_hypothesis_table("/design/hypotheses.csv")
-  validate_hypotheses(hypotheses, colnames(pair$exposed))
-  scope <- new.env(parent = globalenv())
-  sys.source("/design/analysis.R", envir = scope)
-  if (!is.function(scope$analyze)) stop("analysis.R must define analyze")
-  result <- scope$analyze(pair$exposed, pair$unexposed, hypotheses, alpha)
-  validate_result(result, hypotheses)
-  utils::write.csv(result, "/output/result.csv", row.names = FALSE, na = "")
-}
-
 #' Dispatch container mode, seed execution, and write success status
 #'
 #' @param args Container arguments: mode, alpha, and execution seed, in that order.
@@ -59,12 +43,9 @@ run_analysis <- function(pair, alpha) {
 main <- function(args) {
   setwd("/work")
   set.seed(as.integer(args[3]))
-  if (startsWith(args[1], "document-")) doc_runtime(args[1], as.numeric(args[2]))
-  else {
-    pair <- load_pair()
-    if (args[1] == "explore") run_exploration(pair)
-    else run_analysis(pair, as.numeric(args[2]))
-  }
+  stopifnot(args[1] %in% c("explore", "document-inspect", "document-evaluate"))
+  if (args[1] == "explore") run_exploration(load_pair())
+  else doc_runtime(args[1], as.numeric(args[2]))
   jsonlite::write_json(list(status = "ok"), "/output/status.json", auto_unbox = TRUE)
 }
 

@@ -115,7 +115,7 @@ draw_observations <- function(n, effects) {
 
 #' Generate one reusable setting using separate state, effect, and data streams
 #'
-#' @param config Validated configuration list from load_config(), unless a SessionConfig is
+#' @param config Current generation/planning configuration, unless a SessionConfig is
 #'   explicitly noted.
 #' @param m Number of measurement columns.
 #' @param target Planning power target c.
@@ -130,4 +130,14 @@ generate_setting <- function(config, m, target, streams) {
   observations <- with_stream(streams[[3]], function() draw_observations(planning$n, effects))
   list(states = states, effects = effects, planning = planning,
        observations = observations, streams = streams, m = m, target = target)
+}
+
+#' Preserve the original six stream slots and append c=0.9 settings.
+#' @param config Validated experiment configuration.
+#' @return Ordered data IDs; stable for both supported grids.
+setting_stream_ids <- function(config) {
+  historical <- config
+  historical$power_targets <- c(0.2, 0.6)
+  old <- unique(scenario_grid(historical)$data_id)
+  c(old, setdiff(unique(scenario_grid(config)$data_id), old))
 }

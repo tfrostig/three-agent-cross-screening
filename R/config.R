@@ -9,28 +9,18 @@ r_packages <- function() {
     "testthat", "knitr", "rmarkdown", "matrixStats", "coin", "boot")
 }
 
-#' Read the current CLI default or an explicitly selected historical configuration.
+#' Read the default configuration or an explicitly selected configuration file.
 #' @param args Character vector of command-line arguments.
 #' @return Parsed YAML; protocol-specific validation remains with the caller.
 read_pilot_config <- function(args) {
-  path <- cli_value(args, "--config", "config/document-pilot.yml")
+  path <- cli_value(args, "--config", "config/pilot.yml")
   if (!grepl("^(/|~|[A-Za-z]:)", path)) path <- file.path(project_root, path)
   yaml::read_yaml(path.expand(path))
 }
 
-#' Read and validate a pilot YAML configuration
-#'
-#' @param path Input or destination filesystem path, as indicated in the description.
-#' @return Validated configuration list; invalid settings raise an error.
-load_config <- function(path) {
-  config <- yaml::read_yaml(path)
-  validate_config(config)
-  config
-}
-
 #' Enforce the fixed pilot grid and one-iteration contract
 #'
-#' @param config Validated configuration list from load_config(), unless a SessionConfig is
+#' @param config Current generation/planning configuration, unless a SessionConfig is
 #'   explicitly noted.
 #' @return The configuration invisibly; stops on unsupported settings.
 validate_config <- function(config) {
@@ -59,7 +49,7 @@ validate_config <- function(config) {
 
 #' Expand the permitted scenarios and shared dataset IDs
 #'
-#' @param config Validated configuration list from load_config(), unless a SessionConfig is
+#' @param config Current generation/planning configuration, unless a SessionConfig is
 #'   explicitly noted.
 #' @return Data frame with m, c, criterion, id, and data_id. Matching m=100 criteria share
 #'   data_id.
@@ -84,20 +74,4 @@ require_packages <- function(packages) {
   missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]
   if (length(missing)) stop("Missing R packages: ", paste(missing, collapse = ", "),
                             ". Run Rscript --vanilla scripts/setup.R")
-}
-
-#' Check explicit model selection and private credential availability
-#'
-#' @param config Validated configuration list from load_config(), unless a SessionConfig is
-#'   explicitly noted.
-#' @return No scientific result; stops before agents start if configuration is unavailable.
-validate_live_config <- function(config) {
-  if (is.null(config$openai$model) || !nzchar(trimws(config$openai$model))) {
-    stop("An explicit openai.model is required")
-  }
-  check <- processx::run("poetry", c("run", "python", "-m", "agents.credentials", "--check"),
-                          wd = project_root, error_on_status = FALSE)
-  if (check$status != 0) {
-    stop("Credential unavailable; export OPENAI_API_KEY or configure the authorized local .env")
-  }
 }

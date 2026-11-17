@@ -1,7 +1,7 @@
 #' Check data-free inspection and isolation using synthetic observations only.
 source("R/bootstrap.R")
 source("R/document_pipeline.R")
-config <- yaml::read_yaml("config/document-pilot.yml")
+config <- yaml::read_yaml("config/pilot.yml")
 config$sandbox$image <- docker_info(config$sandbox$image)
 work <- ensure_dir(tempfile("document-isolation-"))
 input <- ensure_dir(tempfile("document-observations-"))

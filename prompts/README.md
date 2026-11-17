@@ -1,27 +1,19 @@
-# Which prompt is current?
+# Scientific prompt
 
-The current scientific prompt is [document-20261111.txt](document-20261111.txt),
-the unchanged Section 2.1 text from the approved specification. The familiar
-[system.txt](system.txt) filename contains an identical copy. Tests check both
-against the recorded SHA-256 digest to prevent drift.
+[system.txt](system.txt) is the only scientific prompt. Its words and punctuation
+are preserved from Section 2.1 of the approved specification, with PDF line
+wrapping and split-word artifacts normalized. [system.provenance.json](system.provenance.json)
+records the source identity and approved prompt SHA-256. Tests prevent accidental edits.
 
-The current agent loads the versioned file once through PydanticAI `instructions=`.
-It receives no additional custom scientific system/developer block or reference
-brief. Dimensions, criterion and family level arrive in the user message; tool
-schemas describe the technical interface. See [the workflow guide](../docs/document-workflow.md).
+The PydanticAI agent supplies this text once through `instructions=`. There is no
+separate custom developer instruction block, reference brief or retrieval tool.
+The user message supplies only measurements, exposed/unexposed sample sizes,
+FWER/FDR and the numeric family level. Tool schemas supply the technical contract.
 
-| Protocol | Configuration | Scientific prompt | Additional instructions |
-|:--|:--|:--|:--|
-| Current, default | `config/document-pilot.yml` | `document-20261111.txt` (identical to `system.txt`) | Technical tool/output interfaces only |
-| Legacy, explicit selection | `config/pilot.yml` | `legacy-system.txt` | `legacy-developer.txt` and the historical reference brief |
-
-The legacy files preserve the previous prompt bytes. They support interpreting
-and running the historical protocol; they are not inputs to the current sessions.
-For exact resumption of a saved run, use its original source revision and config:
-strict fingerprints intentionally detect any code, path or prompt-file changes.
-
-Export the current model-visible input without credentials or API requests:
+Export the complete model-visible input without credentials or provider requests:
 
 ```sh
-poetry run python -m agents.document_preview --output deliverables/current-model-input.md
+poetry run python -m agents.document_preview --output deliverables/model-input.md
 ```
+
+Older prompts are available in Git history, not in the current execution tree.

@@ -23,7 +23,7 @@ def export(root, output):
                         output=[t.__dict__ for t in info.output_tools], instructions=info.instructions)
         return ModelResponse(parts=[TextPart("preview")])
 
-    agent = build(FunctionModel(respond), (root / "prompts/document-20261111.txt").read_text())
+    agent = build(FunctionModel(respond), (root / "prompts/system.txt").read_text())
     try:
         agent.run_sync("Number of measurements: {m}\nExposed sample size: {n}\nUnexposed sample size: {n}\nError criterion: {FWER or FDR}\nFamily level: {numeric value of 0.05/3}\n")
     except Exception:

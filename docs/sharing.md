@@ -1,75 +1,46 @@
 # Sharing code and results
 
-For the historical pooled-selection extension, package its run and historical
-comparisons with `--run-dir results/live-pooled-20261104 --output-dir exports/pooled-results-2026-11-04`.
-The reading guide points to its primary study-count recovery summary. Counts are
-derived from the included scenario grid rather than assuming eight scenarios or
-24 designs. Use `--standalone --run-dir DIR` to package a single offline fixture.
-See [the extension guide](https://github.com/tfrostig/three-agent-cross-screening/blob/main/docs/pooled-selection.md) for imports and selection provenance.
+The public repository contains the current implementation, scientific prompt,
+configuration, dependency locks, tests and reusable report sources. Saved runs
+and report bundles are distributed separately. Rendering obtains findings and
+usage from local CSV/JSON inputs; no saved-run values are embedded in the template.
 
-The public repository contains implementation, current prompts, configuration,
-lockfiles, offline checks, curated references, and report templates. Saved runs
-are distributed separately so that credentials, synthetic input matrices, private
-simulation truth, and local runtime files cannot enter an initial Git commit.
-Nothing is deleted from the working project by the sharing scripts.
+## Publish source
 
-## Results bundle
-
-From the project root, with both completed runs present:
-
-```sh
-Rscript --vanilla scripts/build_results_bundle.R
-```
-
-The default destination is `exports/three-agent-cross-screening-results-2026-11-02/`
-and the adjacent ZIP. Use `--output-dir <new-directory>` for a different export.
-Existing destinations are rejected to prevent accidental replacement.
-
-The packager uses an explicit allowlist. It copies the original and revised run
-reports, score tables, per-hypothesis evaluations, frozen designs, exploration
-scripts/results, prompts, session metadata, and conversation records. A separate
-directory records the revised run's single infrastructure failure and recovery.
-It also supplies a portable R Markdown comparison and two annotated examples.
-
-Copied audit records replace local home/project paths with placeholders. Frozen
-analyses, hypothesis lists, scientific explanations, and exploration source remain
-byte-identical to their originals; a local path in one of those files causes a
-failure instead of silently changing the artifact. SHA-256 inventory entries say
-which files were copied unchanged, path-sanitized, or generated. The script
-verifies frozen hashes and exported exploration code against original requests.
-It scans allowed files for common credential formats without opening `.env`.
-
-Input matrices, private truth files, workspaces, execution caches, raw controller
-logs, temporary render files, full PDFs, and the proposal are omitted. Audit
-records include summaries of synthetic observations; they are research outputs,
-not an archive stripped of all observed numerical values. References and prompt
-text are evidence of what agents received, not instructions to the reader.
-
-The portable `summary/summary.Rmd` reads only the included CSV files. It does not
-execute agent code or call OpenAI. Original run report HTML files are already
-rendered; their source-specific report builders still require the full local
-project and omitted data. A new model run is stochastic and need not reproduce
-the frozen designs even with the same simulation seed.
-
-## Public Git checks
-
-After staging an explicit list of code directories and lockfiles, run:
+Stage explicit code/documentation paths, then run:
 
 ```sh
 Rscript --vanilla scripts/check_public_files.R
 ```
 
-The check reads staged blobs, rejects private/generated paths, links, unusually
-large files, and common secret formats, and prints only offending filenames.
-It never reads `.env` or compares against actual credential values. A Git ignore
-rule is a convenience, not protection for a file already tracked. Inspect staged
-filenames before committing and rerun this check for later publications.
+The check reads staged Git blobs, rejects private/generated paths, unusual modes,
+oversized content and credential patterns, and prints filenames only on failure.
+It never opens `.env`. Ignore rules do not protect files already tracked, so
+inspect staged names as well. No credentials, results, report bundles, complete
+PDFs or synthetic observation/truth matrices belong in public Git.
 
-Only source files belong in the public repository. Share the results ZIP directly
-with collaborators; uploading it to a public GitHub release is a separate action.
+## Verify and share results
 
-Current report templates obtain coverage, findings, family counts, usage and
-comparison tables from saved local CSV/JSON files at rendering time. Saved-run
-numbers are not embedded in the public template. Older one-off historical report
-drafts under `analyses/replicability*` and `analyses/summarize_document_run.R`
-remain local and are ignored because they contain saved-run findings.
+Completed runs produce an editable R Markdown report, rendered HTML, detailed
+CSVs, frozen code/explanations/exploration and integrity records. The complete
+local archive preserves reproducibility inputs. The compact share archive omits
+raw observations, private truth matrices and mutable workspaces and has its own
+subset hash index.
+
+```sh
+Rscript --vanilla analyses/validate_document_run.R results/my-live-run
+```
+
+The validator recomputes the six measures and recovery from saved outcome values,
+checks incomplete scores and verifies full/compact archive hashes. It makes no
+model calls. Further report formatting is documented in the workflow guide.
+
+A share bundle can still contain agent explanations, exploratory summaries,
+usage and execution audits. Share it directly with intended collaborators;
+publishing it in a public GitHub release is a separate action. Agent text is
+rendered literally, never executed as R Markdown.
+
+Older source is retained in Git history. Cleanup of the current repository does
+not delete or rewrite saved runs, frozen designs, private local reference PDFs
+or existing ZIPs. A historical run must use its original source revision and
+recorded execution image for exact continuation.

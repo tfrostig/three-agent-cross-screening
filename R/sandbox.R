@@ -48,7 +48,7 @@ sandbox_args <- function(request, stage, output, name) {
     as.character(request$execution_seed))
 }
 
-#' Stage exploration code or the two executable design files
+#' Stage exploration code
 #'
 #' @param request Trusted request list with mode, input_dir, workspace, alpha, execution_seed,
 #'   and sandbox settings.
@@ -56,15 +56,9 @@ sandbox_args <- function(request, stage, output, name) {
 #' @return Writes read-only files in stage; report text and host-private files are never
 #'   staged.
 prepare_stage <- function(request, stage) {
-  if (request$mode == "explore") {
-    writeLines(request$code, file.path(stage, "code.R"), useBytes = TRUE)
-  } else {
-    for (name in c("analysis.R", "hypotheses.csv")) {
-      path <- safe_file(file.path(request$workspace, name), request$workspace)
-      file.copy(path, file.path(stage, name), overwrite = FALSE)
-    }
-  }
-  Sys.chmod(list.files(stage, full.names = TRUE), "0444")
+  stopifnot(request$mode == "explore")
+  writeLines(request$code, file.path(stage, "code.R"), useBytes = TRUE)
+  Sys.chmod(file.path(stage, "code.R"), "0444")
 }
 
 #' Read at most a fixed number of captured output bytes
@@ -114,8 +108,8 @@ run_container <- function(args, timeout, directory, name) {
 #'
 #' @param request Trusted request list with mode, input_dir, workspace, alpha, execution_seed,
 #'   and sandbox settings.
-#' @return Bounded execution metadata; optionally publishes a validated result CSV. Temporary
-#'   stage/output directories are removed on exit.
+#' @return Bounded exploration metadata. Temporary stage/output directories are removed
+#'   on exit.
 execute_sandbox <- function(request) {
   stage <- ensure_dir(tempfile("stage-"))
   output <- ensure_dir(tempfile("output-"))
@@ -132,17 +126,5 @@ execute_sandbox <- function(request) {
     result$status <- if (identical(result$exit_code, 0L)) status$status else "failed"
     result$error <- status$error %||% NULL
   }
-  result_file <- file.path(output, "result.csv")
-  if (request$mode != "explore" && result$status == "ok") {
-    safe_file(result_file, output)
-    if (file.info(result_file)$size > 2 * 1024 * 1024) stop("Result file exceeds 2 MiB")
-    result$result <- read_result_table(result_file)
-    exposed <- readRDS(file.path(request$input_dir, "exposed.rds"))
-    hypotheses <- read_hypothesis_table(file.path(stage, "hypotheses.csv"))
-    validate_hypotheses(hypotheses, colnames(exposed))
-    validate_result(result$result, hypotheses)
-    if (!is.null(request$result_file)) write_csv(result$result, request$result_file)
-  }
-  result$result <- NULL
   result
 }

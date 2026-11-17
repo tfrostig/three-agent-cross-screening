@@ -18,7 +18,7 @@ from pydantic_ai.models.function import FunctionModel
 from agents.models import AgentDependencies, SessionConfig
 from agents.document_state import atomic_json, validate_markdown, fixture_report, freeze, usage_from_messages, committed
 from agents.runner import RRunner
-from agents.session import live_resources, load_session, run_with_audit, write_audit
+from agents.runtime import live_resources, load_session, run_with_audit, write_audit
 
 
 class Submission(BaseModel):
@@ -230,7 +230,7 @@ async def execute(config, offline):
         offline: Select deterministic fixture without credential access.
     """
     started = time.monotonic()
-    prompt = (config.project_root / "prompts/document-20261111.txt").read_text()
+    prompt = (config.project_root / "prompts/system.txt").read_text()
     client = transport = None
     if offline:
         model = fixture(config)

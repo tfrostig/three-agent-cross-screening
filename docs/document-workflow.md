@@ -1,230 +1,181 @@
-# Document-based three-study workflow
+# Current three-study workflow
 
-This protocol implements Section 2.1 and Section 3 of `nsf_bsf_2025 (1).pdf`.
-The scientific prompt is copied unchanged into `prompts/document-20261111.txt`.
-`prompts/system.txt` is a byte-identical current copy, checked by tests. The old
-texts are preserved in `prompts/legacy-system.txt` and `prompts/legacy-developer.txt`;
-current sessions do not load them. Image building, preflight and running now
-default to `config/document-pilot.yml`. Select the historical workflow explicitly
-with `--config config/pilot.yml`; inspect historical prompts with
-`poetry run python -m agents.prompts --legacy`.
-Its provenance file records PDF and prompt SHA-256 digests. Typesetting line breaks
-and discretionary line-end hyphens are removed; scientific wording is preserved.
+There is one scientific prompt, `prompts/system.txt`, and one default configuration,
+`config/pilot.yml`. The prompt preserves Section 2.1 of the approved specification;
+`prompts/system.provenance.json` records its source and SHA-256. Older source is
+available in Git history, not as a second executable workflow.
 
-## What the model receives
+## Code ownership and model input
 
-Every source session gets that one instruction block through PydanticAI
-`instructions=`, with no additional custom system prompt, developer instructions,
-reference brief, or retrieval tool. Its user message contains only m, n per arm,
-FWER/FDR and the numeric family level 0.05/3. The two tools are `run_r` and
-`write_artifact_file`; `finalize_design` is the typed final output. Tool schemas
-contain the technical data and output contract, and are part of the recorded
-model inputs. `prompt-preview.md` captures the actual PydanticAI tool schemas.
+| Responsibility | Code |
+|:--|:--|
+| Generation and sample-size planning | `R/simulation.R`, `R/config.R` |
+| Current orchestration, freeze/checkpoints and scoring | `R/document*.R` |
+| PydanticAI agent and typed tools | `agents/document.py` |
+| Provider lifecycle and conversation audit | `agents/runtime.py`, `agents/transport.py` |
+| Restricted R bridge and containers | `agents/runner.py`, `R/sandbox.R`, `R/document_sandbox.R`, `docker/` |
+| Reports and archive verification | `R/document_results.R`, `analyses/` |
 
-Each agent sees its own independent exposed/control matrices. It never sees
-simulation truth, the generator, c, regime labels, sibling data/conversations,
-pooled selection results, or held-out results. Separate instances, histories,
-dependencies and workspaces are allocated per source. Python handles the model;
-R handles simulation, statistical execution, selection and scoring.
+Each source session receives the exact scientific text once through PydanticAI
+`instructions=`. There is no additional custom scientific system/developer block,
+reference brief or retrieval tool. The user message contains exactly:
 
-## Design interface
+```text
+Number of measurements: {m}
+Exposed sample size: {n}
+Unexposed sample size: {n}
+Error criterion: {FWER or FDR}
+Family level: {numeric value of 0.05/3}
+```
 
-The agent writes only `analysis.R` and `report.md`. The R script exports a
-`hypotheses` data frame with `measurement_id` (matrix column name) and integer
-`direction` (+1 exposed > unexposed, -1 exposed < unexposed). Both directions may
-occur, but each pair is unique. There is no arbitrary hypothesis ID or external
-hypothesis CSV. Store source-derived weights and selections in the script.
+Each agent sees only its own exposed/control matrices. It receives no generator,
+truth, c, regime label, sibling data/history, combined-data results or target
+results. Instances, dependencies, histories, workspaces and audits are separate.
 
-`analyze(exposed, unexposed, alpha)` returns a named list:
-
-- `directional_results`: measurement_id, direction, p_value,
-  adjusted_p_value, reject, in that column order; exactly the frozen family.
-- `outcome_results`: measurement_id, adjusted_p_value, reject, in that order;
-  every input measurement once. Nonselected outcomes have value 1/no rejection.
-
-P-values must be finite within [0,1]; reject is logical and equals adjusted value
-<= supplied alpha. An outcome is rejected exactly when any of its directional
-claims is rejected. If both directions are tested, the design itself computes
-and explains a combined outcome value; the framework does not invent it.
-Use input matrix dimensions: pooled inputs have twice the source rows per arm.
-The script cannot require exploratory workspace files at evaluation time.
-
-## Validation and execution
-
-The agent can run exploratory R, inspect errors/output, and write files.
-`exploration.md` is generated from exact recorded calls/results, without rerunning
-anything. The original explanation/recommendations remain in `report.md`.
-
-Finalization checks bounded regular files, parses and loads definitions in a
-fresh restricted container **without any observations**, checks family and
-function arguments, and never calls `analyze`. Structural failures may be repaired
-at most twice. Successful script/report files are hashed and frozen. No
-performance-driven repair follows freezing.
-
-After all three source attempts finish, target i compares designs j/k on pooled
-j+k exposed and control samples separately. Both run at alpha/3; the larger
-unique-outcome rejection count wins, ties use smaller source index. One failed
-candidate permits the survivor with a degraded flag; two failures fail that
-target. The unchanged winner runs on independent held-out i. The original cycle
-is secondary. Equivalent evaluations use a hash-verified cache, including input,
-artifact, runtime, level and deterministic execution seed identity.
-
-Each execution has no network/credentials/truth/sibling workspaces, read-only
-inputs, a fresh filesystem/process, nonroot user, 60-second deadline, one CPU,
-2 GiB memory, process cap and bounded output. Docker only executes generated R;
-it is not an agent or a statistical validator. Runtime checks enforce the output
-contract, not statistical calibration. No pooled or target feedback reaches agents.
-
-## Scoring
-
-For each outcome, q1/q2/q3 are the combined adjusted values supplied by designs.
-Global value is min(1,3*min(q)); replicability is min(1,3*second-smallest(q)).
-No further correction is applied. Replicability requires effects in at least two
-studies, without requiring a common direction. L counts studies with q<=alpha/3;
-r is the true number of nonzero studies. Main totals are sum(L),
-sum(L*I(L<=r)), global discoveries and true global discoveries, and replicability
-discoveries and true replicability discoveries. Recovery is mean(L/r*I(L<=r))
-over r>0. Wrong studies/signs may still earn count credit; directional errors,
-FDP, directional power, overclaims and all-null discoveries are separate.
-Missing targets make all aggregate scores incomplete, never zero-filled.
-
-The primary comparator tests every outcome with a two-sided Welch test,
-Holm for FWER or BH for FDR, at alpha/3 separately in each study. It makes no
-sign claims. Pooled counts are exploratory; one iteration does not estimate
-long-run error rates. Offline fixtures are prewritten software tests, not findings
-about autonomous agents.
-
-## Running and reading outputs
-
-Use the existing locked renv/Poetry dependencies. Do not install new frameworks.
+Export the actual instructions, user template and PydanticAI-generated tool/output
+schemas without credentials or provider calls:
 
 ```sh
-Rscript --vanilla scripts/build_image.R --config config/document-pilot.yml
-poetry run pytest
+poetry run python -m agents.document_preview --output deliverables/model-input.md
+```
+
+## Tools and submitted artifacts
+
+- `run_r(code)` runs exploratory R with the session's numeric `exposed` and
+  `unexposed` matrices. Rows are independent observations; matching column names
+  identify measurements. Files persist in the session workspace, R variables do not.
+- `write_artifact_file(path, content)` writes `analysis.R` or `report.md`.
+- `finalize_design(script_file, report_file)` is the typed final submission,
+  restricted to those two filenames.
+
+`report.md` must contain nonempty sections: Exploration findings, Hypothesis
+selection, Final procedure, and Assumptions and limitations. This checks formatting,
+not scientific quality. The framework derives `exploration.md` from recorded R
+calls and outputs without rerunning them. Agent Markdown is rendered literally.
+
+`analysis.R` exports `hypotheses`, a data frame with `measurement_id` (existing
+column names) and integer `direction` (+1 or −1), and:
+
+```r
+analyze <- function(exposed, unexposed, alpha) { ... }
+```
+
+Both directions are permitted; duplicate measurement–direction pairs are rejected.
+All choices, weights, cutoffs and source-derived parameters must be embedded in
+the script. No hypothesis CSV, arbitrary hypothesis ID or exploratory-file dependency
+is used. Input dimensions must support both ordinary and combined subsets.
+
+The function returns these exact tables:
+
+| Table | Columns |
+|:--|:--|
+| `directional_results` | measurement_id, direction, p_value, adjusted_p_value, reject |
+| `outcome_results` | measurement_id, adjusted_p_value, reject |
+
+The first contains exactly the frozen family, the second every measurement once.
+Nonselected outcomes have adjusted value 1 and no rejection. The design itself
+supplies and explains the outcome-level combination when testing both directions.
+The framework does not replace its multiplicity procedure.
+
+## Validation, isolation and freezing
+
+Submission checks require bounded regular files, safe paths, R syntax, valid
+measurement names/directions, the specified function signature and required
+Markdown sections. Definitions are inspected in a fresh restricted container
+**without observations**. `analyze()` is not called during this check. Structural
+errors may be repaired within budget; no p-values or discovery counts are returned.
+
+Accepted files are frozen read-only with artifact hashes and an atomic completion
+marker. All source attempts finish before selection. Every exploration, inspection
+and uncached evaluation uses a fresh container: no network, credentials, truth,
+generator, sibling files or Docker socket; inputs and code are read-only, with
+bounded writable scratch/output.
+
+After execution, validate exact required rows, unique families, finite values in
+[0,1], decisions equal to adjusted value ≤ supplied alpha, directional/outcome
+rejection agreement, nonselected outcomes and unchanged frozen hashes. These
+checks establish executable/reporting consistency, not statistical validity.
+
+Budgets remain 16 physical API attempts per session, 8,192 output tokens per
+response, 12 exploratory R calls, 32 tool calls and two structural repairs.
+Transport retries count within the physical-attempt budget. R containers have a
+60-second deadline, 2 GiB memory, one CPU, 128-process limit and bounded output.
+
+## Selection and scoring
+
+For target i, combine the exposed samples of the other two subsets separately
+from their controls. Apply both of their frozen designs at 0.05/3. More unique
+measurements with rejections wins; count both-direction rejections once and audit
+the conflict. Ties use smaller source index. Apply the winner unchanged to i,
+again at 0.05/3. No combined-data or target feedback reaches agents.
+
+One failed candidate yields a flagged degraded comparison using the survivor;
+two failures leave the target missing. Missing target evaluations make aggregate
+scenario scores incomplete, never zero-filled. Combined-data counts select a
+design and are exploratory, not confirmed findings. The original cycle is a fixed
+routing comparator using the same current designs; it is not a separate agent
+implementation. A truth-informed oracle is labeled as an additional reference.
+
+The non-agent competitor uses two-sided Welch for every outcome, with Holm for
+FWER or BH for FDR, within each subset separately at 0.05/3. All three subsets are
+aggregated with the same [six measures](document-metrics.md). Study-count recovery
+and directional error diagnostics are additional. One iteration reports realized
+outcomes and does not establish long-run FWER/FDR.
+
+## Planning and checkpoints
+
+The configuration uses both specified hypothesis-state distributions and
+c=0.2/0.6/0.9, giving 24 nominal scenarios, 18 dataset settings and at most 72
+source sessions. Matching m=100 FWER/FDR scenarios share observations. Preserve
+RNG-stream assignments and choose the strictly smallest qualifying n. Undefined
+planning or resource-limit failures are recorded without redrawing.
+
+`run.json` seals configuration, prompt/interface/source hashes and resolved image
+identity. `datasets.json` seals observations before sessions start. Each source
+has pending/running/frozen/failed state. Resume verifies identity and hashes,
+skips committed designs and continues unstarted sessions. Interrupted/failed
+sessions keep histories, partial artifacts and known usage; no fresh budget is
+silently allocated. Concurrent controllers are refused. Each scenario commits
+its outputs immediately. Only complete, verified evaluation caches are reused.
+
+`--reuse-run PATH` imports compatible observations through hash-verified provenance,
+not agent designs. A small read-only historical results comparison remains
+available when explicitly configured; it does not execute an older agent protocol.
+Use an older run's original Git commit and recorded image for exact continuation.
+
+## Commands and reports
+
+```sh
+Rscript --vanilla scripts/build_image.R
+poetry run pytest -q
 Rscript --vanilla scripts/test.R
-Rscript --vanilla scripts/preflight.R --config config/document-pilot.yml --offline
-Rscript --vanilla scripts/run_pilot.R --config config/document-pilot.yml --run-dir results/document-offline --offline
+Rscript --vanilla scripts/run_pilot.R --dry-run
+Rscript --vanilla scripts/preflight.R --offline
+Rscript --vanilla scripts/test_document_sandbox.R
+Rscript --vanilla scripts/run_pilot.R --offline --run-dir results/offline-demo
 ```
 
-A live run uses a new output directory and omits `--offline`. It requires an
-explicit model and exported OPENAI_API_KEY. This protocol never reads `.env`.
-`--dry-run` lists scenarios without Docker/model calls. `--scenario` selects one
-scenario; its RNG slot remains fixed. `--reuse-run PATH` imports only compatible
-historical dense datasets, with byte hashes and origin recorded; it never
-imports old designs as new-prompt designs. New runs refuse existing directories.
-Legacy configs/readers and historical output remain available unchanged.
+Live execution uses a new directory and omits `--offline`. It requires an explicit
+model and exported `OPENAI_API_KEY`. No code loads `.env`. Dry runs and previews
+make no model calls and need no credentials.
 
-Both regimes and c=.2/.6/.9 give 24 nominal scenarios/18 dataset slots/at most
-72 sessions. Planning failures remain in failures.csv, with no redraw. Matching
-m=100 FWER/FDR settings share data. All settings are planned before model calls.
-
-Open report.html for summaries, report.Rmd for editable source, and summary.csv
-for numbers. Under scenarios/, agent-N/frozen contains code, explanation,
-exploration and integrity metadata. selection-*.csv records selection; method
-subdirectories contain target-results.json, outcomes.csv (full document tables)
-and directional-metrics.csv where applicable. evaluations/ retains execution
-and cache audits. private/ contains truth/observations for reproducibility;
-none is agent-visible. The results ZIP includes a README and SHA256.csv.
-
-Generated results, ZIPs, private inputs and credentials are excluded from Git.
-Reports escape agent text and never knit agent-supplied R Markdown.
-
-## Checkpoints and the live results report
-
-The scientific prompt is unchanged. The technical artifact schema now requires
-four nonempty Markdown headings in each agent's report: Exploration findings,
-Hypothesis selection, Final procedure, and Assumptions and limitations. These
-hold the agent's actual source evidence, reproducible selection/direction rule,
-counts, cutoff/weight rationale, correction/combination procedure and relevant
-assumptions. This is a structure check, not a scientific-quality grader.
-
-`run.json` seals configuration, model/interface/scientific prompt/source hashes
-and resolved image identity. `datasets.json` seals every dataset's bytes before
-any model session. Use `--reuse-run results/document-verified-20261112` to import
-both regimes from the verified snapshot without redrawing. Each source has a
-pending/running/frozen/failed checkpoint. Frozen directories are published by
-atomic rename, with a completion marker covering the frozen metadata hash.
-
-Use the original command plus `--resume` to recover the same run. Identity or
-hash mismatches stop recovery. Frozen sessions never call the model again.
-Unstarted sessions continue. Interrupted sessions without a committed design
-are marked failed; their histories/partial artifacts/API-attempt counters and
-known usage are preserved, with no silently renewed budget. Existing transient
-transport retries and structural repairs stay within original limits. No target
-results return for redesign. Concurrent controllers are refused. Each completed
-scenario commits its results and an integrity index immediately.
-
-The main report leads with actual live/fixture status, matched discovery counts,
-paired recovery comparisons, plots, completeness and usage. Appendices contain
-metric definitions/examples, the exact prompt and technical interfaces, method
-excerpts, all original explanations and an agent index. `agent-methods.csv`
-distinguishes proposed designs from selected target uses. `selected-algorithms.csv`
-records routing, ties, failures and artifact digests. Historical comparisons are
-restricted to matched dense datasets and are workflow comparisons, not proof of
-a prompt-only effect.
-
-The full ZIP retains reproducibility records. The smaller `-share.zip` contains
-reports, frozen code, original explanations, exploration journals, per-measurement
-results and audits, but omits raw observation/truth matrices and mutable workspaces.
-It has a separate subset hash index. Previous archives are never overwritten;
-interrupted packaging outputs are retained under timestamped names.
-
-An explicitly authorized trusted launcher may privately extract only OPENAI_API_KEY
-from the original .env and export it to the run subprocess. This does not display,
-log or copy the credential file/value into artifacts. The source-session module
-still accepts only an exported key, and R tools/containers receive no credential.
-Without that explicit authorization, .env remains unread.
-
-## Independent verification and a portable reviewed report
-
-After the controller exits, verify the saved scores and original archives:
+Completed runs contain report.Rmd/HTML, summary and per-outcome CSVs, selection
+records, failures, usage, timing and frozen agent artifacts. Verify scores and
+archives independently:
 
 ```sh
-Rscript --vanilla analyses/validate_document_run.R results/document-live-20261115
+Rscript --vanilla analyses/validate_document_run.R results/my-live-run
 ```
 
-This independently recomputes the six aggregate counts and recovery from saved
-outcome values, checks incomplete scores, and verifies full and compact archive
-hashes. It makes no model calls and does not rerun agent designs.
-
-Create a results-first portable copy with additional interpretation:
+Create a separate reviewed portable copy and a sequential main report/supplement:
 
 ```sh
-Rscript --vanilla analyses/document_live_review.R \
-  --run-dir results/document-live-20261115 \
-  --output deliverables/document-live-20261115-final
+Rscript --vanilla analyses/document_live_review.R --run-dir results/my-live-run --output deliverables/my-reviewed-run
+Rscript --vanilla analyses/restructure_document_report.R --source deliverables/my-reviewed-run --output deliverables/my-report
 ```
 
-Choose a new output directory when repeating this command. The original live
-directory and its archives remain unchanged. The reviewed copy adds explicit
-source failure reasons, readable paired tables, all-route comparisons, family
-structure and post-run direction-eligibility diagnostics. Its plots show only
-complete paired settings. Markdown formatting preserves literal original agent
-text and renders that text without executing it. The script renders the editable
-R Markdown, writes a directory guide and creates a separately indexed ZIP in
-`exports/`. These diagnostics are not sent to agents or used to select designs.
-
-For this live experiment, build a sequential main report and separate supplement:
-
-```sh
-Rscript --vanilla analyses/restructure_document_report.R \
-  --source deliverables/document-live-20261115-final \
-  --output deliverables/document-live-20261115-guide
-```
-
-The main text is maintained in `analyses/document-reader-template.md`; coverage,
-findings, family/session counts, timing/usage and tables come from saved local
-CSV/JSON files. No saved-run results are embedded in the public template.
-`supplement.html` preserves original
-literal explanations/code, organized into appendices A–H. This narrative describes
-this specific experiment. Use a new output directory, and verify the narrative
-when adapting it to another run. Restructuring and rendering make no model calls.
-
-The specification-aligned edition uses the six measure names from Section 3
-verbatim, labels probability settings by Π(0,0,0), and places the later-agreed
-study-count recovery score in Supplement I. Build it with the same command and
-`--output deliverables/document-live-20261115-specification`. The generated
-`specification-terms.csv` maps document names to unchanged stored field names;
-`specification-provenance.json` records the source PDF identity. The tables and
-agent artifacts keep their original values and hashes. Original quoted agent
-reports and code excerpts are never rewritten to match framework terminology.
+The main report explains measures before results and uses separate agent/competitor
+columns. The supplement preserves original agent Markdown, exact instructions,
+code, exploration and audits. Coverage, findings and resource totals are derived
+from local saved files. Use fresh output paths; the original run and previous ZIPs
+remain unchanged. See [sharing](sharing.md) for public Git boundaries.
