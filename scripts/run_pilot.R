@@ -3,7 +3,7 @@
 
 source("R/bootstrap.R")
 args <- commandArgs(trailingOnly = TRUE)
-config <- yaml::read_yaml(cli_value(args, "--config", "config/pilot.yml"))
+config <- read_pilot_config(args)
 if (identical(config$protocol, "document-v2")) source("R/document_pipeline.R") else validate_config(config)
 options <- list(offline = "--offline" %in% args, dry_run = "--dry-run" %in% args,
                 resume = "--resume" %in% args, run_dir = cli_value(args, "--run-dir"),

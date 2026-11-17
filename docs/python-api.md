@@ -1,5 +1,13 @@
 # Python API reference
 
+> **Historical protocol reference.** The current default uses
+> [config/document-pilot.yml](../config/document-pilot.yml) and the
+> [approved document prompt](../prompts/document-20261111.txt). Start with the
+> [current workflow guide](document-workflow.md). The interfaces and examples
+> below describe the legacy workflow; select it explicitly with
+> `--config config/pilot.yml`. Historical prompt text is preserved in `prompts/legacy-*.txt`.
+
+
 These entries are extracted statically from the source docstrings. No credentials, agents, or model clients are loaded. See the [agent contracts](agent-api.md) for tool schemas and the [developer walkthrough](developer-guide.md) for the R/Python boundary.
 
 ## `agents/__init__.py`
@@ -501,7 +509,7 @@ def load_prompts(root: Path, references: ReferenceLibrary | None=None) -> tuple[
 Load shared templates and optionally append approved reference context.
 
 Args:
-    root: Project root containing prompts/system.txt and developer.txt.
+    root: Project root containing prompts/legacy-system.txt and legacy-developer.txt.
     references: Optional verified session-local ReferenceLibrary.
 
 Returns:
@@ -536,7 +544,8 @@ def write_prompt_preview(root: Path, output: Path) -> None
 ```
 
 ```text
-Export current assembled prompt text without running agents.
+Export legacy assembled prompt text without running agents. The CLI exports
+current document-protocol input by default; pass --legacy for this historical preview.
 
 Args:
     root: Project directory containing templates, curated pack, and tool source.

@@ -1,3 +1,5 @@
+# Legacy workflow: select explicitly with --config config/pilot.yml.
+# The current CLI default is config/document-pilot.yml.
 seed: 20261016
 alpha: 0.05
 iterations_per_scenario: 1

@@ -82,10 +82,10 @@ bundle_check_run <- function(directory) {
 #' Copy the methodology and approved reference context
 #'
 #' @param output Destination directory or file, as indicated in the description.
-#' @return Manifest records for methods documents, current prompts, and curated library files.
+#' @return Manifest records for historical methods, legacy prompts and the curated library.
 bundle_extra_files <- function(output) {
   paths <- c("docs/isolation.md", "docs/prompt-revision.md", "docs/sharing.md",
-    "prompts/system.txt", "prompts/developer.txt")
+    "prompts/legacy-system.txt", "prompts/legacy-developer.txt")
   references <- list.files("references/agent-pack", recursive = TRUE, full.names = TRUE)
   paths <- c(paths, references)
   records <- lapply(paths, function(path) {

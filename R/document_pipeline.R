@@ -86,8 +86,13 @@ doc_run <- function(config, options) {
   doc_config(config)
   grid <- doc_grid(config)
   if (!is.null(options$scenario)) grid <- grid[grid$id %in% options$scenario, , drop = FALSE]
-  stopifnot(nrow(grid) > 0, !is.null(options$run_dir))
-  if (options$dry_run) { print(grid); return(invisible(NULL)) }
+  stopifnot(nrow(grid) > 0)
+  if (options$dry_run) {
+    print(grid)
+    cat("Source designs:", 3*nrow(grid), "\nAdditional validation draws: 0\n")
+    return(invisible(NULL))
+  }
+  stopifnot(!is.null(options$run_dir))
   config$sandbox$image <- doc_preflight(config, options$offline)
   run_dir <- doc_initialize(config, options, grid)
   lock <- doc_lock(run_dir)

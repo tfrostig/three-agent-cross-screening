@@ -1,17 +1,25 @@
 # Configuration and commands
 
+> **Historical protocol reference.** The current default uses
+> [config/document-pilot.yml](../config/document-pilot.yml) and the
+> [approved document prompt](../prompts/document-20261111.txt). Start with the
+> [current workflow guide](document-workflow.md). The interfaces and examples
+> below describe the legacy workflow; select it explicitly with
+> `--config config/pilot.yml`. Historical prompt text is preserved in `prompts/legacy-*.txt`.
+
+
 Run CLI commands from the repository root. `R/bootstrap.R` can resolve an explicit
 root from `CROSS_SCREENING_ROOT`, but several entry-point paths are relative to
 the working directory. [README setup](../README.md#setup) lists prerequisites.
 
 ## YAML fields
 
-The current configuration is [`config/pilot.yml`](../config/pilot.yml).
+The legacy configuration described here is [`config/pilot.yml`](../config/pilot.yml).
 `validate_config()` intentionally supports the fixed first-run experiment, not
 an arbitrary simulation grid. Unknown YAML fields are not comprehensively rejected;
 do not infer that an unused setting changes behavior.
 
-| Field | Current value | Purpose and implementation |
+| Field | Legacy value | Purpose and implementation |
 |:---|:---|:---|
 | `seed` | `20261016` | Master scientific RNG seed; source execution seeds and model output are separate. |
 | `alpha` | `0.05` | Overall level; planning uses `alpha/m`, each target family receives `alpha/3`. |
@@ -50,13 +58,13 @@ contract-repair budget. See source and [tool contracts](agent-api.md).
 ## Experiment entry point
 
 ```sh
-Rscript --vanilla scripts/run_pilot.R [options]
+Rscript --vanilla scripts/run_pilot.R --config config/pilot.yml [options]
 ```
 
 | Option | Default | Effect |
 |:---|:---|:---|
-| `--config FILE` | `config/pilot.yml` | Load and validate YAML. |
-| `--scenario ID` | All eight | Select an exact ID, e.g. `fwer_m20_c20`; unknown IDs fail. |
+| `--config FILE` | Current CLI default: `config/document-pilot.yml` | Pass `--config config/pilot.yml` for this legacy workflow. |
+| `--scenario ID` | All settings in selected config | Legacy example: `fwer_m20_c20`; unknown IDs fail. |
 | `--run-dir DIR` | Timestamp under `results_directory` | Destination; existing directories require compatible `--resume`. |
 | `--offline` | Live | Use fixture provider/artifacts; Docker is still required. |
 | `--dry-run` | Off | Print scenarios/session count and return before credentials, Docker or data generation. |
@@ -90,7 +98,7 @@ same saved data. Do not use it to let agents redesign after seeing target result
 | `Rscript --vanilla scripts/check_reuse.R --reuse-run DIR` | Offline checks of every source design in a complete compatible historical run. | Docker, no model or key loader. |
 | `Rscript --vanilla scripts/render_report.R --run-dir DIR` | Renders saved full report; requires private setting RDS files. | Pandoc, no model. |
 | `Rscript --vanilla scripts/export_exploration.R --run-dir DIR` | Exports existing audit requests to exact `.R` files and an index. | No model or agent-code execution. |
-| `poetry run python -m agents.prompts --output FILE` | Writes a current prompt review copy. | No model or key loader. |
+| `poetry run python -m agents.prompts --legacy --output FILE` | Writes a current prompt review copy. | No model or key loader. |
 | `Rscript --vanilla scripts/build_results_bundle.R --run-dir DIR --output-dir EXPORT` | Includes the current run and historical comparisons; `--standalone` includes only DIR and supports offline fixtures. Refuses existing export destinations. | Saved results, Pandoc; no model. |
 | `Rscript --vanilla scripts/render_api_reference.R` | Regenerates R API Markdown from adjacent source documentation without evaluating CLI/analysis scripts. | Local R dependencies, no model. |
 | `Rscript --vanilla scripts/check_public_files.R` | Inspects staged Git blobs and prohibited paths. | Local Git, no key loader. |
@@ -98,8 +106,8 @@ same saved data. Do not use it to let agents redesign after seeing target result
 For an end-to-end software smoke test, use a new destination:
 
 ```sh
-Rscript --vanilla scripts/run_pilot.R --dry-run
-Rscript --vanilla scripts/run_pilot.R --offline --scenario fwer_m20_c20 --run-dir results/offline-demo
+Rscript --vanilla scripts/run_pilot.R --config config/pilot.yml --dry-run
+Rscript --vanilla scripts/run_pilot.R --config config/pilot.yml --offline --scenario fwer_m20_c20 --run-dir results/offline-demo
 ```
 
 For a live experiment, export a runtime key using the README's hidden-input

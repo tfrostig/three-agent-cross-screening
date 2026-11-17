@@ -1,4 +1,4 @@
-"""Assemble versioned prompts and export an offline review copy.
+"""Assemble legacy-protocol prompts and export a historical workflow preview.
 
 System role, shared execution instructions, optional reference context, and
 source-session task metadata are distinct inputs. Generator source, truth,
@@ -16,15 +16,15 @@ def load_prompts(root: Path, references: ReferenceLibrary | None = None) -> tupl
     """Load shared templates and optionally append approved reference context.
 
     Args:
-        root: Project root containing prompts/system.txt and developer.txt.
+        root: Project root containing the prompts/legacy-*.txt templates.
         references: Optional verified session-local ReferenceLibrary.
 
     Returns:
         Tuple of statistical system prompt and shared execution instructions.
     """
     directory = root / "prompts"
-    system = (directory / "system.txt").read_text(encoding="utf-8")
-    instructions = (directory / "developer.txt").read_text(encoding="utf-8")
+    system = (directory / "legacy-system.txt").read_text(encoding="utf-8")
+    instructions = (directory / "legacy-developer.txt").read_text(encoding="utf-8")
     if references is not None:
         instructions += references.prompt_context()
     return system, instructions
@@ -63,7 +63,7 @@ required artifacts, check the contract, and finalize your design.
 
 
 def write_prompt_preview(root: Path, output: Path) -> None:
-    """Export current assembled prompt text without running agents.
+    """Export the legacy assembled prompt without running agents.
 
     Args:
         root: Project directory containing templates, curated pack, and tool source.
@@ -77,7 +77,7 @@ def write_prompt_preview(root: Path, output: Path) -> None:
     tree = ast.parse((root / "agents/factory.py").read_text(encoding="utf-8"))
     tool = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "run_r")
     description = ast.get_docstring(tool)
-    text = ("# Revised agent prompts\n\nFuture-run templates; prior run outputs are unchanged.\n\n"
+    text = ("# Legacy agent prompts\n\nHistorical workflow only. Current prompt: prompts/document-20261111.txt.\n\n"
             "## System prompt\n\n```text\n" + system + "```\n\n"
             "## Shared instructions, reference brief, and catalog\n\n```text\n"
             + instructions + "\n```\n\n## Data description supplied with run_r\n\n```text\n"
@@ -87,15 +87,22 @@ def write_prompt_preview(root: Path, output: Path) -> None:
 
 
 def main():
-    """Run the offline prompt-preview CLI.
+    """Export current model input by default, or legacy prompts with --legacy.
 
-    Accepts --output FILE, defaulting to deliverables/revised-agent-prompts.md.
+    Accepts --output FILE and makes no provider requests or credential reads.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=Path, default=Path("deliverables/revised-agent-prompts.md"))
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--legacy", action="store_true")
     args = parser.parse_args()
-    write_prompt_preview(Path(__file__).resolve().parent.parent, args.output)
-    print(f"Prompt review: {args.output}")
+    root = Path(__file__).resolve().parent.parent
+    output = args.output or Path("deliverables") / ("legacy-agent-prompts.md" if args.legacy else "current-agent-prompts.md")
+    if args.legacy:
+        write_prompt_preview(root, output)
+    else:
+        from agents.document_preview import export
+        export(root, output)
+    print(f"Prompt review: {output}")
 
 
 if __name__ == "__main__":

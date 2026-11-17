@@ -1,13 +1,21 @@
 # Developer walkthrough
 
+> **Historical protocol reference.** The current default uses
+> [config/document-pilot.yml](../config/document-pilot.yml) and the
+> [approved document prompt](../prompts/document-20261111.txt). Start with the
+> [current workflow guide](document-workflow.md). The interfaces and examples
+> below describe the legacy workflow; select it explicitly with
+> `--config config/pilot.yml`. Historical prompt text is preserved in `prompts/legacy-*.txt`.
+
+
 This guide explains how the implementation works and how to review or extend it.
 Read [the contracts](agent-api.md) when changing an interface and
 [configuration](configuration.md) before running a command.
 
-The current default adds pooled leave-one-study-out algorithm selection and
-study-count recovery. Read [the extension guide](pooled-selection.md) alongside
-this walkthrough. The freeze, isolation and source-session interfaces below are
-unchanged; cyclic transfer is retained as the `agent_cycle` comparator.
+This walkthrough covers the earlier pooled-selection and study-count recovery
+implementation. Select it with `--config config/pilot.yml`. The current default
+uses the document protocol and the different source-session interface documented
+in [the current workflow guide](document-workflow.md).
 
 ## Start at the two entry points
 

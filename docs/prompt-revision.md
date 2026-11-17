@@ -1,5 +1,13 @@
 # Prompt and reference revision
 
+> **Historical protocol reference.** The current default uses
+> [config/document-pilot.yml](../config/document-pilot.yml) and the
+> [approved document prompt](../prompts/document-20261111.txt). Start with the
+> [current workflow guide](document-workflow.md). The interfaces and examples
+> below describe the legacy workflow; select it explicitly with
+> `--config config/pilot.yml`. Historical prompt text is preserved in `prompts/legacy-*.txt`.
+
+
 This revision prepares new runs. It does not change the saved first experiment,
 its reports, or its frozen agent outputs. Use a new run directory.
 

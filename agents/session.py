@@ -1,4 +1,4 @@
-"""Execute one isolated design session launched by the trusted R pipeline.
+"""Legacy session orchestration; shared runtime helpers also support agents.document.
 
 The controller creates fresh histories, dependencies, runner, reference snapshot,
 and client per session. It records partial audits, checks final artifact hashes,

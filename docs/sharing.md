@@ -1,6 +1,6 @@
 # Sharing code and results
 
-For the current pooled-selection extension, package the new run and historical
+For the historical pooled-selection extension, package its run and historical
 comparisons with `--run-dir results/live-pooled-20261104 --output-dir exports/pooled-results-2026-11-04`.
 The reading guide points to its primary study-count recovery summary. Counts are
 derived from the included scenario grid rather than assuming eight scenarios or

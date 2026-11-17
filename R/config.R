@@ -9,6 +9,15 @@ r_packages <- function() {
     "testthat", "knitr", "rmarkdown", "matrixStats", "coin", "boot")
 }
 
+#' Read the current CLI default or an explicitly selected historical configuration.
+#' @param args Character vector of command-line arguments.
+#' @return Parsed YAML; protocol-specific validation remains with the caller.
+read_pilot_config <- function(args) {
+  path <- cli_value(args, "--config", "config/document-pilot.yml")
+  if (!grepl("^(/|~|[A-Za-z]:)", path)) path <- file.path(project_root, path)
+  yaml::read_yaml(path.expand(path))
+}
+
 #' Read and validate a pilot YAML configuration
 #'
 #' @param path Input or destination filesystem path, as indicated in the description.

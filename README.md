@@ -1,87 +1,62 @@
 # Three-agent cross-screening
 
-R implements the simulation, sample-size calculation, tests, scoring, and report.
-Python implements isolated PydanticAI design sessions. The first run covers all
-initial eight scenarios once. The current grid adds c=0.9: **12 scenarios and
-36 source designs**, with one simulation iteration per scenario and
-**zero additional validation draws**.
+**Current scientific prompt: [prompts/system.txt](prompts/system.txt).** It is an
+exact copy of the approved, versioned [document-20261111.txt](prompts/document-20261111.txt).
+The current agent loads that versioned text once through PydanticAI `instructions=`;
+no additional custom scientific system/developer block or reference brief is added.
 
-The current procedure selects a frozen algorithm for each held-out study by
-comparing the other two agents on their pooled observations. Its primary outcome
-is **study-count recovery**, with zero credit for overstating the number of
-affected studies. See the [pooled-selection guide](docs/pooled-selection.md) for
-the precise score, selection rule, reuse provenance, and outputs. The original
-cyclic agents remain a comparator. Importing the revised run requires only
-**12 new live sessions**; 24 designs are reused with source-only container checks.
+**Current default configuration: [config/document-pilot.yml](config/document-pilot.yml).**
+The previous system/developer texts are preserved as
+[legacy-system.txt](prompts/legacy-system.txt) and
+[legacy-developer.txt](prompts/legacy-developer.txt), used only by the explicit
+legacy workflow. [The prompt directory guide](prompts/README.md) explains the mapping.
+
+R implements simulation, planning, deterministic validation, selection, evaluation
+and reporting. Python implements isolated PydanticAI source-design sessions.
+
+## Current workflow
+
+1. Generate three independent exposed/control pairs for the same outcomes.
+2. Each agent explores only its own subset using R and writes a self-contained
+   analysis design plus a scientific explanation.
+3. Check the submitted files and inspect definitions without observations;
+   do not apply the final analysis during submission validation. Freeze accepted designs.
+4. For target study i, compare the other two frozen designs on their combined
+   observations at 0.05/3. More unique discovered outcomes wins; ties use the
+   smaller source-agent index. These counts select a design and are exploratory.
+5. Apply the winner unchanged to study i in a fresh restricted container, at
+   0.05/3. Agents receive no combined-data or target results for redesign.
+6. Compare with two-sided Welch testing of every outcome, separately within each
+   subset, with Holm for FWER or BH for FDR. Aggregate all three subsets using
+   the specification's six measures.
+
+The current configuration contains 24 nominal settings, 18 dataset settings and
+at most 72 source sessions: FWER with m=20/100, FDR with m=100/1000, c=0.2/0.6/0.9,
+and both hypothesis-state distributions. Matching m=100 FWER/FDR settings share
+observations but use separate agent sessions. There is one iteration per setting
+and zero additional validation draws. Undefined planning is recorded without redrawing.
 
 ## Documentation
 
-For a first code review, start with the [developer walkthrough](docs/developer-guide.md).
-It follows one setting from simulation through agent design, freezing, transfer,
-and scoring, with source links and an executable R-only example.
+| Guide | Scope |
+|:--|:--|
+| [Current workflow and interfaces](docs/document-workflow.md) | Exact prompt placement, typed tools, R contract, validation, isolation, selection, checkpoints and commands |
+| [Current prompts](prompts/README.md) | Which files are current, which are legacy, and how to export the complete model input |
+| [Six measures from the specification](docs/document-metrics.md) | Lower bounds, global null discoveries and replicability discoveries, using the original names |
+| [Sharing](docs/sharing.md) | Code/results separation, staged-content checks and exclusions |
+| [Legacy developer walkthrough](docs/developer-guide.md) | Earlier session, hypothesis CSV and reference-based workflow |
+| [Legacy agent contract](docs/agent-api.md) | Earlier tools and artifact schemas |
+| [Legacy configuration](docs/configuration.md) | Explicit config/pilot.yml settings and historical command options |
+| [Legacy pooled selection](docs/pooled-selection.md) | Earlier design imports and study-count recovery extension |
+| [R reference](docs/r-api.md), [Python reference](docs/python-api.md) | Earlier generated API references; current interfaces are in the workflow guide and source docstrings |
 
-| Guide | What it explains |
-|:---|:---|
-| [Developer walkthrough](docs/developer-guide.md) | Call sequence, objects, ownership boundaries, failure handling, and where to make changes. |
-| [Pooled selection and count recovery](docs/pooled-selection.md) | Current aggregation, score, historical imports, and extended grid. |
-| [Agent and artifact contracts](docs/agent-api.md) | PydanticAI architecture, each tool, session state, prompts, CSV schemas, and freeze lifecycle. |
-| [Configuration and commands](docs/configuration.md) | Every YAML field, CLI option, required inputs, outputs, and operational limitations. |
-| [R function reference](docs/r-api.md) | Function inputs, returned objects, filesystem effects, and failure behavior. |
-| [Python API reference](docs/python-api.md) | Google-style module, class, and function documentation for the agent controller. |
-| [Isolation](docs/isolation.md) | Container mounts, credential boundaries, and audit checks. |
-| [Sharing](docs/sharing.md) | Public repository exclusions and validated results packaging. |
-
-R functions carry roxygen-style documentation directly above their definitions;
-the project is a collection of sourced scripts, so roxygen2 is not required.
-Python maintainer APIs use Google-style docstrings. The nested agent-tool
-descriptions are also part of the actual experimental prompts: changing them
-changes what the model receives.
-
-## Repository map
-
-| Directory | Contents |
-|:---|:---|
-| `R/` | Simulation, sample-size planning, scoring, contracts, Docker execution, and pipeline. |
-| `agents/` | PydanticAI sessions, typed tools, artifact handling, references, and API transport. |
-| `prompts/` | Current system prompt and shared instructions. |
-| `config/` | Scenario grid, model ID, and resource budgets. |
-| `docker/` | Restricted R runtime and pinned package installer. |
-| `references/agent-pack/` | Curated brief, reference summaries, approved excerpts, and their catalog. |
-| `scripts/` | Setup, checks, run/report entry points, and results packaging. |
-| `analyses/` | Post-run comparisons and report builders; these require saved results. |
-| `reports/` | R Markdown templates, including a portable shared-results summary. |
-| `docs/` | Architecture, isolation, prompt revisions, and sharing guides. |
-| `tests/`, `fixtures/` | Offline software checks and deterministic fixture analyses. |
-
-Generated `results/`, `deliverables/`, and `exports/` directories stay local and
-are ignored by Git. Full source PDFs, the internal research proposal, credentials,
-R data files, environments, and machine-specific Docker manifests are also ignored.
-The committed curated reference pack is sufficient to run the current agents;
-rebuilding its excerpts requires separately obtained source PDFs.
-
-## Shared results
-
-The original run is `results/live-first`; the revised run is
-`results/live-revised-20261101`. They use the same generated observations. The
-pooled-selection extension is `results/live-pooled-20261104`; it imports the
-revised designs/data at c=0.2/0.6 and adds c=0.9.
-Saved results are distributed separately from this code repository. To build the
-review bundle from both completed local runs:
-
-```sh
-Rscript --vanilla scripts/build_results_bundle.R --run-dir results/live-pooled-20261104 --output-dir exports/pooled-results-2026-11-04
-```
-
-Open the ZIP's `README.html` first. It explains the summary, both runs, frozen
-analyses, exploratory code, audit records, baseline results, and omitted files.
-The bundle contains no input matrices, private simulation RDS files, credentials,
-or full PDFs. It supports inspection and summary rendering; it is not an exact
-execution archive. See [the sharing guide](docs/sharing.md).
+Functions carry documentation in source. The scientific prompt and tool schemas
+are experimental inputs: changes require a new run identity, not silent resumption.
 
 ## Setup
 
-Run commands from this directory. Requirements: R 4.6.0, Python 3.12 or 3.13,
-Poetry, Docker Desktop, and Pandoc (also supplied by RStudio).
+Run from the repository root. Requirements: R 4.6.0, Python 3.12/3.13, Poetry,
+Docker and Pandoc (also supplied by RStudio).
 
 ```sh
 poetry install
@@ -89,183 +64,112 @@ Rscript --vanilla scripts/setup.R
 Rscript --vanilla scripts/build_image.R
 ```
 
-`poetry.lock` fixes Python dependencies. `renv.lock` fixes host R dependencies.
-To restore the latter into the project library, run
-`Rscript --vanilla scripts/setup.R --restore`. The Docker base image and agent
-package versions are pinned separately in `docker/Dockerfile` and
-`docker/install.R`. Every run records and executes the resolved image digest.
+The image builder, preflight and experiment entry point default to
+`config/document-pilot.yml`. Supplying that path explicitly is equivalent.
+`poetry.lock` and `renv.lock` record dependencies; the Docker base image is pinned
+in `docker/Dockerfile`. Every execution records its resolved image identity.
 
-The controller privately reads only the `OPENAI_API_KEY` assignment from `.env`
-at runtime, as authorized. An exported key takes precedence. Values are never
-printed, shell-sourced, copied into results, or passed to agent containers. Other
-assignments are ignored. `.env.example` names the expected variable. The Docker
-build context excludes `.env` and contains only explicitly allowlisted runtime
-files, the statistical contract, and the package installer.
-
-## Verify before a live run
+## Inspect and verify without OpenAI calls
 
 ```sh
+poetry run python -m agents.document_preview --output deliverables/current-model-input.md
 poetry run pytest -q
 Rscript --vanilla scripts/test.R
-Rscript --vanilla scripts/preflight.R --offline
-Rscript --vanilla scripts/test_sandbox.R
 Rscript --vanilla scripts/run_pilot.R --dry-run
-Rscript --vanilla scripts/run_pilot.R --offline --run-dir results/offline-demo
+Rscript --vanilla scripts/preflight.R --offline
+Rscript --vanilla scripts/test_document_sandbox.R
+Rscript --vanilla scripts/run_pilot.R --offline --run-dir results/document-offline-demo
 ```
 
-The offline run exercises real PydanticAI agents and their tools with a
-deterministic `FunctionModel` provider. Its statistical scripts are fixtures,
-not OpenAI-generated designs. It still uses isolated Docker containers. There
-is no host-execution fallback for generated R code.
+`poetry run python -m agents.prompts --output FILE` also exports the **current**
+model input. Add `--legacy` only to inspect the historical assembled prompts.
 
-The report labels fixture outputs explicitly. It is a software validation run,
-not evidence about the quality of a live model's scientific designs.
+Tests, previews and dry runs require no credentials. Offline execution uses
+prewritten deterministic PydanticAI fixtures and real restricted R containers;
+its outputs are software checks, not evidence of live agent performance.
 
-## Live run
+## Live execution
 
-The requested GPT-6.1 model is configured as `gpt-6.1-sol` in `config/pilot.yml`.
-Model access is checked by the API; no substitute is chosen automatically.
+The current protocol requires an **exported OPENAI_API_KEY** and the explicit
+model configured in `config/document-pilot.yml` (`gpt-6.1-sol`). It does not
+implicitly load `.env`. Never paste a real key into a command, commit or report.
+The optional private credential loader is separate and requires explicit local
+authorization; it is not called by the document-protocol source sessions.
 
-The existing local `.env` can supply `OPENAI_API_KEY` privately:
+After exporting the key privately, these commands start live execution:
 
 ```sh
-Rscript --vanilla scripts/preflight.R
-Rscript --vanilla scripts/run_pilot.R --run-dir results/my-live-run
+Rscript --vanilla scripts/preflight.R --config config/document-pilot.yml
+Rscript --vanilla scripts/run_pilot.R --config config/document-pilot.yml --run-dir results/my-document-run
 ```
 
-Alternatively, export `OPENAI_API_KEY`. In zsh, the following reads it without
-displaying it or placing the value in a command:
+Use a new run directory. Each session has separate data, history, dependencies,
+workspace and audit records. Docker receives no credentials, truth, generator,
+sibling workspaces, network access or Docker socket.
+
+A compatible checkpoint can be continued with:
 
 ```sh
-read -rs 'OPENAI_API_KEY?OpenAI API key: '
-export OPENAI_API_KEY
-Rscript --vanilla scripts/preflight.R
-Rscript --vanilla scripts/run_pilot.R --run-dir results/my-live-run
+Rscript --vanilla scripts/run_pilot.R --config config/document-pilot.yml --run-dir results/my-document-run --resume
 ```
 
-No API requests occur during dry-run, offline execution, tests, or report
-regeneration. A live run with neither an exported key nor a local `.env` key fails
-before starting agents.
-Only agent-visible synthetic observations, task instructions, the curated brief,
-requested reference sections, and agent tool results are sent to OpenAI;
-the truth, generator code, planning parameters, and other agents' histories are
-not included.
+Identity checks include configuration, prompts, implementation, data and image.
+Committed designs are reused; failed or interrupted sessions do not silently
+receive a new API budget. For an older saved run, use its original source revision
+and explicit configuration. This update does not rewrite saved runs or archives.
+
+## Current agent artifacts and measures
+
+- `analysis.R`: frozen hypothesis family and `analyze(exposed, unexposed, alpha)`.
+  There is no hypothesis CSV or arbitrary hypothesis ID.
+- `report.md`: the agent's source evidence, hypothesis-selection rule, final
+  procedure, assumptions and limitations.
+- `exploration.md`: exact executed exploratory R and captured outputs, generated
+  from logs without rerunning code.
+- `frozen.json` and `complete.json`: framework provenance and integrity records.
+
+The six main measures use the specification's names: total number of lower bounds,
+total number of correct lower bounds, number of global null discoveries, number
+of true global null discoveries, number of replicability discoveries, and number
+of true replicability discoveries. The separately agreed study-count recovery
+score is additional. One iteration reports realized outcomes, not estimated
+long-run FWER/FDR. Executable checks do not prove every statistical assumption.
+
+The current report is generated automatically by the run. Additional report and
+verification commands are documented in [the workflow guide](docs/document-workflow.md).
+
+## Historical workflow
+
+The previous configuration and scientific texts remain available for explicit
+legacy runs:
 
 ```sh
-Rscript --vanilla scripts/run_pilot.R --resume --run-dir results/my-live-run
-Rscript --vanilla scripts/render_report.R --run-dir results/my-live-run
+Rscript --vanilla scripts/build_image.R --config config/pilot.yml
+Rscript --vanilla scripts/preflight.R --config config/pilot.yml --offline
+Rscript --vanilla scripts/run_pilot.R --config config/pilot.yml --offline --run-dir results/legacy-offline-demo
+poetry run python -m agents.prompts --legacy --output deliverables/legacy-model-input.md
 ```
 
-Resume requires the same config, implementation, mode, prompts, and image digest.
-Valid frozen designs are reused. Failed sessions can be retried; completed
-frozen designs are never overwritten. Use a new run directory for changed inputs.
-The implementation fingerprint hashes source bytes, including source comments
-and docstrings. Consequently this documentation update also changes resume/cache
-identity: inspect historical results as saved, or use their original code checkout
-when resuming them. No historical artifacts or scores were modified.
+That workflow uses `agents/session.py`, the `legacy-*.txt` files, a curated reference
+brief, `check_design` and `hypotheses.csv`. The current workflow instead uses
+`agents/document.py`; historical designs are not reinterpreted as current designs.
+Saved conversation records identify exactly what a past agent received.
 
-For the current paired extension, reuse the complete revised local run:
+## Public repository boundaries
+
+This repository contains code, configurations, prompts, locked dependencies,
+tests, curated reference excerpts and reusable report templates. Reports obtain
+saved-run numbers from local files when rendered.
+
+Credentials, `.env`, private inputs, saved results, report bundles, ZIPs, PDFs,
+local environments and machine-specific manifests stay excluded. Only the empty
+`.env.example` variable template is public. Generated `results/`, `deliverables/`
+and `exports/` remain local. Before publishing a change, stage explicit files and run:
 
 ```sh
-Rscript --vanilla scripts/check_reuse.R --reuse-run results/live-revised-20261101
-Rscript --vanilla scripts/run_pilot.R --reuse-run results/live-revised-20261101 --run-dir results/live-pooled-20261104
+Rscript --vanilla scripts/check_public_files.R
 ```
 
-The default current grid has 36 source designs. Supplying this verified historical
-source imports 24 and calls the model only for twelve new c=0.9 designs. Review
-ZIPs omit private data and cannot replace the complete local reuse source.
-
-To inspect one setting, add e.g. `--scenario fwer_m20_c20`. The default selects
-all eight. `--config <file>` selects another config while preserving the
-one-iteration/no-validation requirements.
-
-## Statistical specification
-
-- Draw the three-subgroup state per coordinate with P(000)=0.6, P(111)=0.1,
-  and probability 0.05 for each other state.
-- Conditional nonzero effects are independent absolute N(1,1) draws.
-- Samples are normal with identity covariance. Each of the three agents gets
-  an independent exposed sample and its own independent control: 6n observations.
-- Find the smallest n >= 1 for which all three average nonzero-effect powers
-  strictly exceed c using the PDF's one-sided alpha/m threshold.
-- Agent testing uses alpha/3, where alpha=0.05.
-- FWER settings: m=20,100; FDR settings: m=100,1000; c=0.2,0.6,0.9.
-- Matching m=100 data are reused for the two criteria, with separate sessions.
-- Freeze all three designs before selection/transfer; the cyclic route remains a comparator.
-- A false directional claim includes a zero target effect or the wrong sign.
-- Score power over all nonzero target coordinates, not just selected coordinates.
-
-The primary study-count recovery averages k/r over measurements with r>0 real
-study effects when the claimed count k<=r, and assigns zero if k>r. It scores
-counts, so wrong studies/signs can still earn credit; directional errors remain
-separate. All-null measurements are excluded from this average and reported in
-error totals. The planning formula still uses the original conventional power.
-
-An empty-signal subgroup makes the specified planning power undefined; record
-the failure without redrawing. n=1 is preserved. `max_n` and
-`max_dataset_cells` are explicit resource safeguards, not changes to the generator.
-
-The baselines test both directions for every coordinate: Welch t-tests and a
-known-variance z reference, with Holm for FWER over 2m hypotheses. The updated
-configuration uses BH as the primary FDR correction and BY as a secondary
-reference. New FDR method IDs include `_bh` or `_by`. The original saved experiment
-used BY; those results and their reports have not been changed.
-The z reference uses variance information deliberately withheld from the agents.
-
-With one iteration, the report gives realized FDP, false-discovery indicators,
-and power. **These are not estimates of FWER or FDR.** Failed procedures do not
-become zero-discovery successes, and incomplete families have no global score.
-
-## Agent contract and limits
-
-The exact shared prompts are in `prompts/system.txt` and `prompts/developer.txt`;
-the criterion/dimension template is in `agents/prompts.py`. All agents get the
-same statistical instructions and differ only in their own input and objective.
-
-PydanticAI exposes `run_r`, `read_reference`, `write_artifact_file`, `check_design`, and the typed
-`finalize_design` output tool. Agents own their hypothesis selection, p-value
-method, and complete multiplicity procedure. The harness validates structure
-and measures outcomes; it does not certify or replace their statistical method.
-
-The matrix structure is documented in `run_r`, rather than a repeated formal-null
-block in the shared instructions. Direction encoding remains explicit in the CSV
-contract. A shared curated methods brief is injected into each session; approved
-paper sections can be retrieved on demand using `read_reference`. Only a sanitized
-summary of the research proposal is available to agents. Original PDFs, generator
-details, and prior run results are not exposed through the library.
-
-See `docs/prompt-revision.md` for the revised choices, reference provenance, cache
-identity, and rebuild command. Changed prompts or references require a new run
-directory; the existing `results/live-first` is an immutable record of the old run.
-
-The R interface is `analyze(exposed, unexposed, hypotheses, alpha)`, returning
-one row per frozen hypothesis with `hypothesis_id`, raw `p_value`, logical
-`reject`, and `adjusted_p_value` (or numeric NA). Empty selections are valid.
-
-Default limits: 16 physical API attempts/session, 12 exploratory R calls,
-32 successful tool calls, two contract repairs, 8,192 output tokens/response,
-32 KiB tool output, 120-second API timeout, and 60 seconds/2 GiB/one CPU per R
-execution. Provider SDK retries are disabled; a counted transport bounds retries.
-
-## Files and boundaries
-
-See `docs/isolation.md` for the trust model. Main entry points are
-`scripts/run_pilot.R` and `agents/session.py`. Results include:
-
-- `run.json`, `scenarios.csv`, `planning.csv`, and `R-session.txt`.
-- Private simulation RDS files, retained only on the trusted host.
-- Per-agent prompts, conversations, tool logs, frozen artifacts, and hashes.
-- Per-hypothesis target results and baseline CSVs.
-- `scores.csv`, `global-scores.csv`, `usage.csv`, `power.png`, `report.html`.
-
-Start with preflight and the offline run. A complete live run requires a working
-Docker daemon, network access to OpenAI, valid credentials, and model access.
-
-## Document-based protocol (v2)
-
-The new workflow uses Section 2.1 of the revised PDF unchanged, one instruction
-block, self-contained R designs, data-free structural checks, and deterministic
-pooled selection/held-out evaluation. See [the workflow and interface guide](docs/document-workflow.md)
-for prompts, validation, failure handling, scoring, and offline/live commands.
-Historical protocols and results remain distinct. No paid calls are needed for
-the complete fixture run.
+The check inspects staged blobs and rejects private/generated paths and common
+credential patterns without opening `.env`. The historical reference pack is
+retained for legacy runs; the current agents do not receive it.

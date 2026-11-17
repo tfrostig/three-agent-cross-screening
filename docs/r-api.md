@@ -1,5 +1,13 @@
 # R function reference
 
+> **Historical protocol reference.** The current default uses
+> [config/document-pilot.yml](../config/document-pilot.yml) and the
+> [approved document prompt](../prompts/document-20261111.txt). Start with the
+> [current workflow guide](document-workflow.md). The interfaces and examples
+> below describe the legacy workflow; select it explicitly with
+> `--config config/pilot.yml`. Historical prompt text is preserved in `prompts/legacy-*.txt`.
+
+
 Source documentation is authoritative. This is a sourced-script project; roxygen2 is not required. See the [developer walkthrough](developer-guide.md) and [pooled-selection guide](pooled-selection.md).
 
 ## `R/bootstrap.R`

@@ -2,6 +2,12 @@
 
 This protocol implements Section 2.1 and Section 3 of `nsf_bsf_2025 (1).pdf`.
 The scientific prompt is copied unchanged into `prompts/document-20261111.txt`.
+`prompts/system.txt` is a byte-identical current copy, checked by tests. The old
+texts are preserved in `prompts/legacy-system.txt` and `prompts/legacy-developer.txt`;
+current sessions do not load them. Image building, preflight and running now
+default to `config/document-pilot.yml`. Select the historical workflow explicitly
+with `--config config/pilot.yml`; inspect historical prompts with
+`poetry run python -m agents.prompts --legacy`.
 Its provenance file records PDF and prompt SHA-256 digests. Typesetting line breaks
 and discretionary line-end hyphens are removed; scientific wording is preserved.
 

@@ -1,5 +1,13 @@
 # Agent and artifact contracts
 
+> **Historical protocol reference.** The current default uses
+> [config/document-pilot.yml](../config/document-pilot.yml) and the
+> [approved document prompt](../prompts/document-20261111.txt). Start with the
+> [current workflow guide](document-workflow.md). The interfaces and examples
+> below describe the legacy workflow; select it explicitly with
+> `--config config/pilot.yml`. Historical prompt text is preserved in `prompts/legacy-*.txt`.
+
+
 The Python package implements a single source-design session. R owns simulation,
 target routing, baselines, and truth-aware scoring. See the [walkthrough](developer-guide.md)
 for their call sequence and the [Python reference](python-api.md) for docstrings.
@@ -22,8 +30,8 @@ controller-owned nested dictionaries, so it is not a deeply immutable data struc
 
 | Layer | Implementation | What it contributes |
 |:---|:---|:---|
-| System prompt | `prompts/system.txt` → `Agent(system_prompt=...)` | Statistical role, objective, allowed design choices, and scientific limitations. |
-| Shared instructions | `prompts/developer.txt` → `Agent(instructions=...)` | Frozen-artifact contract, tools, limits, and execution rules. |
+| System prompt | `prompts/legacy-system.txt` → `Agent(system_prompt=...)` | Statistical role, objective, allowed design choices, and scientific limitations. |
+| Shared instructions | `prompts/legacy-developer.txt` → `Agent(instructions=...)` | Frozen-artifact contract, tools, limits, and execution rules. |
 | Reference context | `ReferenceLibrary.prompt_context()` appended to instructions | Common brief and catalog, with background delimited from instructions. |
 | Session task | `user_prompt(config)` | Only session ID, sample dimensions, criterion, supplied alpha, and design task. |
 | Tool descriptions | Registered function signatures/docstrings | Tool arguments and the exposed/unexposed matrix data dictionary. |
@@ -38,7 +46,7 @@ the artifact contract.
 Tool docstrings and Pydantic output-schema descriptions can affect the model.
 Treat changes to them as prompt changes. Maintainer-only function docstrings and
 R comments do not enter messages, although they still affect source-byte fingerprints.
-The exact prompts for an actual run are in `audit/prompts.json`; current templates
+The exact prompts for an actual run are in `audit/prompts.json`; historical templates
 are not a substitute for those archived messages.
 
 ## Tool interfaces

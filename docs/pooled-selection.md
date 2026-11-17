@@ -1,6 +1,14 @@
 # Pooled algorithm selection and study-count recovery
 
-The current experiment has twelve scenarios: FWER at 20/100 measurements and
+> **Historical protocol reference.** The current default uses
+> [config/document-pilot.yml](../config/document-pilot.yml) and the
+> [approved document prompt](../prompts/document-20261111.txt). Start with the
+> [current workflow guide](document-workflow.md). The interfaces and examples
+> below describe the legacy workflow; select it explicitly with
+> `--config config/pilot.yml`. Historical prompt text is preserved in `prompts/legacy-*.txt`.
+
+
+This historical experiment has twelve scenarios: FWER at 20/100 measurements and
 FDR at 100/1,000, each at planning targets 0.2, 0.6, and 0.9. There is one
 iteration per scenario and no additional validation draws. R owns pooling,
 selection, routing, and scoring. Python agents and their prompts are unchanged.
@@ -79,9 +87,9 @@ from a directional hypothesis rejection; both counts are available explicitly.
 ## Reproduction and review
 
 ```sh
-Rscript --vanilla scripts/run_pilot.R --dry-run --reuse-run results/live-revised-20261101
+Rscript --vanilla scripts/run_pilot.R --config config/pilot.yml --dry-run --reuse-run results/live-revised-20261101
 Rscript --vanilla scripts/check_reuse.R --reuse-run results/live-revised-20261101
-Rscript --vanilla scripts/run_pilot.R --reuse-run results/live-revised-20261101 --run-dir results/live-pooled-20261104
+Rscript --vanilla scripts/run_pilot.R --config config/pilot.yml --reuse-run results/live-revised-20261101 --run-dir results/live-pooled-20261104
 Rscript --vanilla scripts/export_exploration.R --run-dir results/live-pooled-20261104
 Rscript --vanilla analyses/validate_pooled_run.R --run-dir results/live-pooled-20261104 --reuse-run results/live-revised-20261101
 Rscript --vanilla scripts/build_results_bundle.R --run-dir results/live-pooled-20261104 --output-dir exports/pooled-results-2026-11-04

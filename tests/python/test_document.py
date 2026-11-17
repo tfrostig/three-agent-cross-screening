@@ -20,6 +20,42 @@ def test_scientific_prompt_is_locked():
     assert hashlib.sha256(prompt.read_bytes()).hexdigest() == record["prompt_sha256"]
     assert "Do not use BY\n" not in prompt.read_text()
     assert "Do not use BY under any circumstances" in prompt.read_text()
+    assert (ROOT / "prompts/system.txt").read_bytes() == prompt.read_bytes()
+
+
+def test_legacy_prompt_loader_uses_only_archived_text():
+    """Keep old protocol inputs separate from the current approved prompt."""
+    from agents.prompts import load_prompts
+
+    system, instructions = load_prompts(ROOT)
+    assert system == (ROOT / "prompts/legacy-system.txt").read_text()
+    assert instructions == (ROOT / "prompts/legacy-developer.txt").read_text()
+    assert system != (ROOT / "prompts/system.txt").read_text()
+
+
+def test_prompt_cli_defaults_to_current_model_input(tmp_path, monkeypatch):
+    """The generic preview command must not accidentally show historical instructions."""
+    from agents.prompts import main
+
+    monkeypatch.setattr("pydantic_ai.models.ALLOW_MODEL_REQUESTS", False)
+    destination = tmp_path / "current.md"
+    monkeypatch.setattr("sys.argv", ["agents.prompts", "--output", str(destination)])
+    main()
+    captured = json.loads(destination.read_text().split("```json\n")[1].split("\n```")[0])
+    assert captured["instructions"] == (ROOT / "prompts/system.txt").read_text()
+    assert {t["name"] for t in captured["tools"]} == {"run_r", "write_artifact_file"}
+
+
+def test_prompt_cli_legacy_mode_is_explicit(tmp_path, monkeypatch):
+    """Retain a credential-free preview for historical runs."""
+    from agents.prompts import main
+
+    destination = tmp_path / "legacy.md"
+    monkeypatch.setattr("sys.argv", ["agents.prompts", "--legacy", "--output", str(destination)])
+    main()
+    text = destination.read_text()
+    assert text.startswith("# Legacy agent prompts")
+    assert (ROOT / "prompts/legacy-system.txt").read_text() in text
 
 
 def test_actual_model_interfaces(tmp_path):

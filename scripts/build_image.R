@@ -3,7 +3,7 @@
 
 source("R/bootstrap.R")
 args <- commandArgs(trailingOnly = TRUE)
-config <- yaml::read_yaml(cli_value(args, "--config", "config/pilot.yml"))
+config <- read_pilot_config(args)
 result <- processx::run("docker", c("build", "-t", config$sandbox$image,
                                    "-f", "docker/Dockerfile", "."),
                          echo = TRUE, timeout = 600, error_on_status = FALSE)

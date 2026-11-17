@@ -1,4 +1,4 @@
-"""Build independent PydanticAI agents and register their typed tools.
+"""Build legacy-protocol agents; the current builder is agents.document.build.
 
 The nested tool docstrings are model-visible experiment inputs. Host-only
 maintainer docs live on the outer registration functions and in docs/agent-api.md."""

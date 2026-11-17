@@ -3,7 +3,7 @@
 
 source("R/bootstrap.R")
 args <- commandArgs(trailingOnly = TRUE)
-config <- yaml::read_yaml(cli_value(args, "--config", "config/pilot.yml"))
+config <- read_pilot_config(args)
 offline <- "--offline" %in% args
 if (identical(config$protocol, "document-v2")) {
   source("R/document_pipeline.R")
