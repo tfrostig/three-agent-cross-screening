@@ -31,12 +31,14 @@ The smallest n satisfying the specification's planning formula was used. [Supple
 
 {{COVERAGE}}
 
+**Why can sample-size planning be undefined?** By chance, a simulated study can have no true effects. Under Π(0,0,0)=0.9, each outcome has probability 0.075 of an effect in a particular study; with m=20, the probability of no effects in that study is 0.925²⁰ ≈ 21%. The planning formula averages power over true effects, so it is undefined for such a study. These draws were retained without redrawing; they are counted separately from agent execution failures.
+
 ## 2. The analysis using the agents' outputs
 
 For each setting, three isolated PydanticAI sessions used **gpt-6.1-sol**. Agent j explored only subset j using R and submitted a reusable R analysis design plus a Markdown report explaining its choices. Its objective was to maximize correct directional discoveries in independent target observations, subject to the supplied criterion and level.
 
 1. **Design.** Each agent fixed its one-sided hypotheses, alternative directions, tests and complete multiple-testing procedure. The framework checked the interface and froze the artifacts.
-2. **Select the winner design.** For study i, apply the other two agents' designs to the combined data excluding study i. Choose the design with the most individual discoveries; ties use the smaller source-agent index.
+2. **Select the winner design.** For study i, apply the other two agents' designs to the combined data excluding study i. Choose the design rejecting the most distinct outcomes, counting an outcome once even if both directions reject; ties use the smaller source-agent index.
 3. **Apply the winner design.** Apply it unchanged to study i. Repeat for all three studies.
 
 | Study being analyzed | Combined data used to select its design | Candidate designs |
@@ -51,46 +53,68 @@ For study 3, for example, designs 1 and 2 compete on combined subsets 1+2. Study
 
 ## 3. Competitor that does not use agents
 
-Following Section 3 of the specification, the competitor applies multiple comparisons **to each subset separately**, using two-sided p-values and ignoring direction: **BH for FDR control and Holm for FWER control**. In this implementation, the individual tests are independent-sample Welch t-tests. Discoveries have adjusted p-values at most 0.05/3.
+Following Section 3 of the specification, the competitor uses a fixed procedure. For **each study separately**, we:
 
-The competitor uses all measurements and observations in each subset, analyzes **all three subsets separately**, and receives exactly the same six summaries as the agents. Directional errors are reported only for procedures making directional claims. The original agent cycle and a truth-informed oracle are additional comparisons in [Supplement E](supplement.html#e-selection-and-secondary-comparisons).
+1. Use all exposed and unexposed observations in that study and test **all m outcomes** with two-sided Welch t-tests.
+2. Adjust the m p-values using **Holm for FWER** or **BH for FDR**. Declare discoveries at adjusted p-value ≤0.05/3.
+3. Repeat for studies 1, 2 and 3, then aggregate the three discovery lists using the same six measures as for agents (Section 4).
+
+### What differs between the two approaches?
+
+| Decision | Agents (winner design) | Competitor (Welch) |
+|:--|:--|:--|
+| How is the procedure chosen for study i? | The other two source designs compete on their combined observations; the winner is frozen before testing i | The same predefined Welch/Holm or Welch/BH procedure is used in every study |
+| Which hypotheses are tested? | The agent's frozen outcomes and one-sided directions, with its chosen weights, ordering and correction | Every outcome, two-sided, with ordinary Holm or BH |
+| Which observations confirm discoveries in study i? | Only study i's exposed and unexposed observations | Only study i's exposed and unexposed observations |
+| What is finally reported? | Results from all three held-out studies, aggregated at the outcome level | Results from all three separately tested studies, aggregated identically |
+
+When an agent also chooses Welch tests, differences come from its frozen hypothesis choices, directions, weights, multiplicity procedure and design selection. Both approaches use a family level of 0.05/3 in each study. Neither pools all three studies into one final test. Agents make directional claims; the competitor makes two-sided claims. The six main measures count outcomes without requiring matching directions; directional errors are reported separately for agents. The original cycle and truth-informed oracle are additional comparisons in [Supplement E](supplement.html#e-selection-and-secondary-comparisons).
 
 ## 4. The six measures of “power” in Section 3
 
-The names below follow the specification. These are realized counts from one iteration.
+These definitions apply **separately and identically to each approach**, for one simulation setting. Let j∈{1,2,3} index studies and i∈{1,…,m} index outcomes. Write
 
-### Lower bounds
+\[
+h_{ji}=\mathbf1\{\eta_{ji}\ne0\},\qquad r_i=\sum_{j=1}^{3}h_{ji}.
+\]
 
-For each outcome, its **lower bound** is the number of subsets with adjusted p-values at most α/3. For example, significance in two subsets gives a lower bound of 2 on the number of subgroups with an effect.
+Thus \(r_i\) is the true number of subgroups with an effect on outcome i. Let \(P'_{ji}\) be its outcome-level, multiplicity-adjusted value from the final analysis of study j: the frozen design's value for agents, or Holm/BH-adjusted two-sided Welch value for the competitor. A nonselected outcome has value 1. With α=0.05, define
 
-- **Total number of lower bounds:** add these lower-bound values across outcomes. One outcome significant in all three subsets contributes 3.
-- **Total number of correct lower bounds:** add a lower bound only if it does not exceed the number of false null hypotheses for that outcome—that is, the number of subgroups with a true nonzero effect. Otherwise its contribution is zero.
+\[
+D_{ji}=\mathbf1\{P'_{ji}\le\alpha/3\},\qquad L_i=\sum_{j=1}^{3}D_{ji}.
+\]
 
-For one outcome with true effects in **two** subgroups:
+\(L_i\) is the **reported lower bound** on \(r_i\), counting each study once even if both directions reject. It is correct for scoring when \(L_i\le r_i\); correctness concerns the count, not which studies or directions were discovered.
 
-| Lower bound reported | Contribution to total number of lower bounds | Contribution to total number of correct lower bounds |
-|--:|--:|--:|
-| 1 | 1 | 1 |
-| 2 | 2 | 2 |
-| 3 | 3 | 0 |
+Table 1 of the supplied document combines the three adjusted values as
 
-Correctness here concerns the lower bound, not the identities of the significant subsets. It is therefore different from counting individually correct subset discoveries.
+\[
+G_i=\min\{1,3\min_jP'_{ji}\},\qquad
+R_i=\min\{1,3\min_{j<k}\max(P'_{ji},P'_{ki})\}.
+\]
 
-### Global null discoveries
+The **global null** is \(r_i=0\) and the **replicability null** is \(r_i\le1\). Therefore \(G_i\le\alpha\) is equivalent to \(L_i\ge1\), and \(R_i\le\alpha\) is equivalent to \(L_i\ge2\). These claims do not require matching directions across studies. No additional correction is applied after this aggregation.
 
-The **global null** for an outcome says that its exposure effect is zero in all three subgroups.
+| Name in the specification | Definition across all outcomes |
+|:--|:--|
+| Total number of lower bounds | \(\displaystyle B=\sum_{i=1}^{m}L_i\) |
+| Total number of correct lower bounds | \(\displaystyle B_{\mathrm{correct}}=\sum_{i=1}^{m}L_i\mathbf1\{L_i\le r_i\}\) |
+| Number of global null discoveries | \(\displaystyle N_{\mathrm G}=\sum_{i=1}^{m}\mathbf1\{G_i\le\alpha\}\) |
+| Number of true global null discoveries | \(\displaystyle T_{\mathrm G}=\sum_{i=1}^{m}\mathbf1\{G_i\le\alpha,\ r_i\ge1\}\) |
+| Number of replicability discoveries | \(\displaystyle N_{\mathrm R}=\sum_{i=1}^{m}\mathbf1\{R_i\le\alpha\}\) |
+| Number of true replicability discoveries | \(\displaystyle T_{\mathrm R}=\sum_{i=1}^{m}\mathbf1\{R_i\le\alpha,\ r_i\ge2\}\) |
 
-- **Number of global null discoveries:** outcomes for which the global null is rejected. With the specification's aggregation, this occurs when at least one subset has adjusted p-value at most α/3. Count each outcome once.
-- **Number of true global null discoveries:** those discoveries for which the global null really is false—there is a nonzero effect in at least one subgroup.
+A **true global null discovery** is a correct rejection: an effect exists somewhere. For \(r_i=2\) and \(L_i=3\), the bound overclaims and contributes zero to \(B_{\mathrm{correct}}\), but the weaker replicability claim is true and contributes one to \(T_{\mathrm R}\). These measures describe different aspects of the same findings and should not be added together.
 
-### Replicability discoveries
+**Check against the supplied document.** The total-lower-bound definition and four global/replicability definitions match Section 3 and Table 1. The document leaves the weighting of “correct lower bounds” ambiguous. We retain the previously agreed sum above: a correct bound of 2 contributes 2. Counting outcomes with a positive correct bound instead would give
 
-- **Number of replicability discoveries:** outcomes declared to have effects in at least two subgroups. With the specified aggregation, at least two subsets must have adjusted p-values at most α/3. Count each outcome once.
-- **Number of true replicability discoveries:** those discoveries for which effects truly exist in at least two subgroups. Matching directions are not required here.
+\[
+C_{\mathrm{positive}}=\sum_{i=1}^{m}\mathbf1\{1\le L_i\le r_i\},
+\]
 
-For example, one outcome significant in all three subsets contributes **3** to the total number of lower bounds, **1** global null discovery and **1** replicability discovery. These summarize the same findings and should not be added together.
+where that outcome contributes 1. The source comparison, CSV mapping, and worked examples are in [Supplement A](supplement.html#a-measures-and-worked-examples).
 
-Formulas and wrong-subset/direction examples are in [Supplement A](supplement.html#a-measures-and-worked-examples). The normalized study-count recovery score agreed later is retained in [Supplement I](supplement.html#i-additional-study-count-recovery); it is **not one of the specification's six measures**.
+All six measures are **realized counts**, not normalized power estimates. The analytic planning power Π_j(n) and target c in Section 1 of the specification serve to select n. The separately agreed normalized study-count recovery score is in [Supplement I](supplement.html#i-additional-study-count-recovery). Neither is one of these six Section 3 counts. Directional power and directional errors are additional diagnostics defined in Supplement A.
 
 ## 5. Worked example: what the six measures count
 
@@ -117,7 +141,13 @@ Outcome B illustrates the distinction: rejecting its global null is correct beca
 
 ## 6. Results for the six measures
 
-**Agents** and **Competitor (Welch)** are separate columns for two approaches evaluated on the same observations. Each cell contains one count. The columns compare procedures; they are not a fraction or an uncertainty interval.
+**Results for each separate combination:** [open the per-setting report](per-setting-results.html) or [download its CSV](per-setting-results.csv). The Cartesian index includes every m × c × probability distribution × error criterion combination, with explicit labels for undefined planning and combinations outside the original design. Each evaluated setting has all six measures, agents, Welch, oracle and the maximum true discoveries. The tables below are aggregated summaries.
+
+**Agents**, **Competitor (Welch)** and **Oracle (realized)** are evaluated on the same observations and scored identically. Each cell contains one count, not a fraction or an uncertainty interval.
+
+The **oracle** uses the true effect signs and known population variances for one-sided z-tests of all m outcomes, followed by Holm for FWER or BH for FDR in each study at 0.05/3. It does not remove true nulls or optimize the testing allocation. It remains subject to sampling variation, so another method can exceed its realized discoveries.
+
+**Maximum true discoveries** gives the number available with perfect knowledge: \(\sum_i r_i\) for correct lower-bound units, \(\sum_i\mathbf1\{r_i\ge1\}\) for true global null discoveries, and \(\sum_i\mathbf1\{r_i\ge2\}\) for true replicability discoveries. These are ceilings for the three *correct* totals, not predictions of what a statistical procedure can detect. A dash is shown for raw totals, which can include errors and therefore exceed the number of true discoveries. See [Supplement A](supplement.html#a-measures-and-worked-examples) for the exact oracle procedure and ceiling formulas.
 
 Each table states the probability setting, requested error criterion and number of complete settings. The six row labels have exactly the meanings defined above.
 

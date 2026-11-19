@@ -143,6 +143,40 @@ not agent designs. A small read-only historical results comparison remains
 available when explicitly configured; it does not execute an older agent protocol.
 Use an older run's original Git commit and recorded image for exact continuation.
 
+### Explicit timeout completion
+
+`analyses/complete_timeouts.R` creates a separate derived run from a sealed live
+archive. It verifies the original package and observations, imports accepted frozen
+designs byte for byte, and identifies failed sessions whose error was a timeout.
+The original run and archives are preserved. It does not redraw undefined planning
+settings or allocate fresh agent budgets.
+
+`agents/recovery.py` continues each timeout from its own saved messages and partial
+workspace, with no new user message. Scientific instructions, metadata, model and
+budgets must match; the R controller verifies the full original archive before
+preparing those inputs. Physical API attempts, logical calls, R calls and repair
+counts retain consumed amounts. Original failure records are preserved separately
+in the new audit. A second invocation cannot silently restart a failed continuation.
+No pooled results, target observations or truth enter the continued conversation.
+
+The explicitly selected image must use the original pinned runtime sources. If
+the original image is unavailable, record its source-file hashes, commit and rebuilt
+image identity; reevaluate all designs consistently under the rebuilt runtime.
+`completion-provenance.json` and `source-imports.csv` distinguish reconstruction,
+imported designs and continued sessions.
+
+```sh
+Rscript --vanilla analyses/complete_timeouts.R --stage prepare --source results/original-live-run --run-dir results/completed-run --image ORIGINAL_RUNTIME_IMAGE --runtime-manifest /path/to/runtime-source-manifest.json
+Rscript --vanilla analyses/complete_timeouts.R --stage continue --run-dir results/completed-run
+Rscript --vanilla analyses/complete_timeouts.R --stage evaluate --run-dir results/completed-run
+```
+
+Only `continue` makes model calls, using an exported key and remaining budgets.
+`evaluate` requires every imported/continued source to be frozen and regenerates
+selection, held-out results, summaries and archives. Per-session usage separates
+historical and new API attempts. Review the completed results as a continuation,
+rather than a new independent simulation replication.
+
 ## Commands and reports
 
 ```sh
@@ -179,3 +213,12 @@ columns. The supplement preserves original agent Markdown, exact instructions,
 code, exploration and audits. Coverage, findings and resource totals are derived
 from local saved files. Use fresh output paths; the original run and previous ZIPs
 remain unchanged. See [sharing](sharing.md) for public Git boundaries.
+
+`analyses/setting_results.R`, called by the reader-report builder, also writes
+`per-setting-results.Rmd`/HTML, `per-setting-index.csv`, and
+`per-setting-results.csv`. The index covers the Cartesian product of configured
+factor levels, while preserving which combinations were actually planned.
+Each evaluated setting has its own six-measure table for pooled agents, cyclic
+agents, Welch and oracle, with truth ceilings for the three correct totals.
+Unplanned combinations and undefined sample-size planning remain missing,
+separately labeled. These files use saved outputs and make no model calls.

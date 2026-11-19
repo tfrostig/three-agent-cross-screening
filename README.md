@@ -87,6 +87,10 @@ designs are reused; interrupted or failed sessions do not silently receive new
 API budgets. Optional `--reuse-run PATH` imports only hash-verified compatible
 observations, never old agent designs.
 
+Timeouts can be continued explicitly in a **separate derived run**, retaining the
+saved source-only conversation and remaining original budgets. This is distinct
+from ordinary `--resume`; see [timeout completion](docs/document-workflow.md#explicit-timeout-completion).
+
 ## Agent artifacts and measures
 
 Each successful session preserves:
@@ -107,6 +111,12 @@ replicability discoveries, and number of true replicability discoveries. The
 separately agreed study-count recovery score remains additional. One iteration
 reports realized outcomes, not estimated long-run FWER/FDR. Executable checks do
 not prove every statistical assumption.
+
+Portable reader reports include `per-setting-results.html` and its editable R
+Markdown source, a Cartesian coverage index, and `per-setting-results.csv` with
+all six measures for each factor combination. Undefined planning and combinations
+outside the configured experiment are labeled explicitly; missing results are
+not filled with zeros.
 
 ## Where to find things
 

@@ -60,13 +60,15 @@ async def live_resources(config, *, exported_key: str):
     return model, client, transport
 
 
-async def run_with_audit(agent, prompt, deps):
-    """Run with an empty history and persist exchanges after each graph node.
+async def run_with_audit(agent, prompt, deps, *, history=None, usage=None):
+    """Run with an isolated history and persist exchanges after each graph node.
 
     Args:
         agent: Fresh PydanticAI agent with typed dependencies and output.
         prompt: Session-specific dimensions, criterion, level, and task.
         deps: State owned by this session alone.
+        history: Verified source-only history for an explicit recovery, otherwise empty.
+        usage: Previously consumed logical usage, retained during recovery.
 
     Returns:
         Completed run result; partial messages are also persisted on failure.
@@ -76,8 +78,8 @@ async def run_with_audit(agent, prompt, deps):
                 "max_tokens": config.openai["max_output_tokens"]}
     limits = UsageLimits(request_limit=config.openai["request_limit"],
                          tool_calls_limit=config.limits["tool_calls_limit"])
-    async with agent.iter(prompt, deps=deps, message_history=[], model_settings=settings,
-                          usage_limits=limits) as run:
+    async with agent.iter(prompt, deps=deps, message_history=history or [], usage=usage,
+                          model_settings=settings, usage_limits=limits) as run:
         try:
             async for _ in run:
                 (config.audit_dir / "messages.json").write_bytes(run.all_messages_json())

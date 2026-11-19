@@ -1,5 +1,6 @@
 #' Build a sequential reader report and indexed supplement from verified live results.
 source("analyses/document_live_review.R")
+source("analyses/setting_results.R")
 
 #' Find framework section boundaries outside literal original agent text.
 #' @param lines Existing reviewed R Markdown.
@@ -49,10 +50,14 @@ reader_coverage <- function(directory) {
   grid<-read_csv(file.path(directory,"scenarios.csv"))
   failed<-read_csv(file.path(directory,"failures.csv"))
   pairs<-read_csv(file.path(directory,"paired-comparisons.csv"))
-  text<-sprintf("**%d planned settings → %d plannable → %d complete agent–competitor comparisons.** Failures are retained without redrawing. Primary comparisons use complete pairs only; failure details are in Supplement H.",
+  text<-sprintf("**%d planned settings → %d with a defined sample size → %d complete agent–competitor comparisons.** Draws with undefined planning are retained without redrawing. Primary comparisons use complete pairs only; planning and execution status are listed separately in Supplement H.",
     nrow(grid),nrow(grid)-nrow(failed),nrow(pairs))
-  groups<-vapply(c("dense","sparse"),function(regime) sprintf("With Π(0, 0, 0) = %s, %d of %d planned settings have complete comparisons.",
-    if(regime=="dense") "0.6" else "0.9",sum(pairs$regime==regime),sum(grid$regime==regime)),character(1))
+  groups<-vapply(c("dense","sparse"),function(regime) {
+    planned<-grid$id[grid$regime==regime]
+    defined<-sum(!planned %in% failed$scenario)
+    sprintf("With Π(0, 0, 0) = %s: %d planned, %d with a defined sample size, and %d complete comparisons.",
+      if(regime=="dense") "0.6" else "0.9",length(planned),defined,sum(pairs$regime==regime))
+  },character(1))
   paste(c(text,groups),collapse="\n\n")
 }
 
@@ -114,10 +119,35 @@ reader_inventory_context <- function(directory) {
     sum(x$status=="frozen"),nrow(pairs))
 }
 
-#' Compare the two procedures in explicit columns for each probability/criterion group.
+#' Derive available true discoveries from the saved per-outcome truth counts.
+#' @param directory Portable artifact directory.
+reader_truth_ceiling <- function(directory) {
+  pairs <- read_csv(file.path(directory,"paired-comparisons.csv"))
+  rows <- lapply(seq_len(nrow(pairs)), function(i) {
+    row <- pairs[i,]
+    path <- file.path(directory,"scenarios",row$id,"agent_pooled_select/outcomes.csv")
+    outcomes <- read_csv(path)
+    stopifnot(nrow(outcomes)==row$m,!anyDuplicated(outcomes$measurement_id),
+      all(outcomes$true_count %in% 0:3))
+    for (method in c("welch_two_sided","oracle_z_secondary")) {
+      other <- read_csv(file.path(directory,"scenarios",row$id,method,"outcomes.csv"))
+      stopifnot(nrow(other)==row$m,!anyDuplicated(other$measurement_id),
+        setequal(outcomes$measurement_id,other$measurement_id),
+        identical(outcomes$true_count,other$true_count[match(outcomes$measurement_id,other$measurement_id)]))
+    }
+    r <- outcomes$true_count
+    data.frame(row[c("id","regime","criterion","m","c")],
+      available_true_study_effects=sum(r),available_global_alternatives=sum(r>0),
+      available_replicable_outcomes=sum(r>=2))
+  })
+  do.call(rbind,rows)
+}
+
+#' Compare primary procedures, saved oracle results and truth ceilings.
 #' @param directory Portable artifact directory.
 reader_primary <- function(directory) {
   totals <- read_csv(file.path(directory,"all-route-comparisons.csv"))
+  truth <- reader_truth_ceiling(directory)
   fields <- names(reader_measure_names())
   labels <- unname(reader_measure_names())
   groups <- data.frame(regime=c("dense","sparse","dense","sparse"),criterion=c("FDR","FDR","FWER","FWER"))
@@ -128,10 +158,17 @@ reader_primary <- function(directory) {
     rows <- totals[totals$regime==g$regime & totals$criterion==g$criterion,]
     a <- rows[rows$method=="agent_pooled_select",fields]
     b <- rows[rows$method=="welch_two_sided",fields]
+    oracle <- rows[rows$method=="oracle_z_secondary",fields]
+    stopifnot(nrow(a)==1,nrow(b)==1,nrow(oracle)==1)
+    available <- truth[truth$regime==g$regime & truth$criterion==g$criterion,]
+    ceiling <- rep("—",length(fields))
+    ceiling[c(2,4,6)] <- format(colSums(available[c("available_true_study_effects",
+      "available_global_alternatives","available_replicable_outcomes")]),big.mark=",",trim=TRUE)
     n <- sum(pairs$regime==g$regime & pairs$criterion==g$criterion)
     name <- sprintf("### Π(0, 0, 0) = %s; %s — %d complete settings",if(g$regime=="dense") "0.6" else "0.9",g$criterion,n)
     table <- data.frame(Measure=labels,Agents=as.integer(a[1,]),
-      `Competitor (Welch)`=as.integer(b[1,]),check.names=FALSE)
+      `Competitor (Welch)`=as.integer(b[1,]),`Oracle (realized)`=as.integer(oracle[1,]),
+      `Maximum true discoveries`=ceiling,check.names=FALSE)
     lines <- c(lines,name,knitr::kable(table,row.names=FALSE,format.args=list(big.mark=",")))
   }
   lines
@@ -155,11 +192,16 @@ reader_recovery <- function(directory) {
 reader_setting_comparison <- function(directory) {
   x <- read_csv(file.path(directory,"paired-comparisons.csv"))
   x <- x[order(x$criterion,x$regime,x$m,x$c),]
+  summary <- read_csv(file.path(directory,"summary.csv"))
+  oracle <- summary[summary$method=="oracle_z_secondary",]
+  truth <- reader_truth_ceiling(directory)
   table <- data.frame(`Π(0,0,0)`=ifelse(x$regime=="dense","0.6","0.9"),Criterion=x$criterion,
     m=x$m,c=x$c,Agents=x$agent_true_rep,Welch=x$standard_true_rep,
+    Oracle=oracle$true_replicability_discoveries[match(x$id,oracle$id)],
+    `Maximum true discoveries`=truth$available_replicable_outcomes[match(x$id,truth$id)],
     Difference=sprintf("%+d",x$replicability_difference),check.names=FALSE)
   c("### Per-setting replicability results {#per-setting-replicability-results}",
-    "Each row is one completed setting. Agents and Welch columns give the number of true replicability discoveries: outcomes discovered in at least two subsets that truly have effects in at least two subgroups. Difference = agents minus the competitor; positive values favor agents. Π(0,0,0) is the probability of no effect in any subgroup.",
+    "Each row is one completed setting. Agents, Welch and Oracle give realized numbers of true replicability discoveries. Maximum true discoveries counts every outcome with effects in at least two subgroups. The oracle knows signs and variances but is not an upper bound on realized method performance. Difference = agents minus Welch. Π(0,0,0) is the probability of no effect in any subgroup.",
     knitr::kable(table,row.names=FALSE))
 }
 
@@ -331,7 +373,8 @@ reader_guide <- function(directory) {
   writeLines(c("# Start here","",
     "Open report.html for the sequential main report using Section 3's six original measure names. Open supplement.html for appendices A–I and the full original records. Supplement I contains a score agreed later; it is not a measure named in the specification.","",
     "| File or directory | Contents |","|:--|:--|",
-    "| report.Rmd, supplement.Rmd | Editable R Markdown sources; rendering requires no model calls |",
+    "| report.Rmd, supplement.Rmd, per-setting-results.Rmd | Editable R Markdown sources |",
+    "| per-setting-results.html, per-setting-results.csv, per-setting-index.csv | Six measures for each setting, with an index of the full Cartesian product |",
     "| supplement.html, Appendix D | Original agent reports, representative code, and links to frozen analyses and exploration |",
     "| scenarios/<setting>/agent-<1,2,3>/frozen/ | analysis.R: procedure; report.md: agent rationale; exploration.md: exact executed R and outputs; frozen.json/complete.json: integrity metadata |",
     "| scenarios/<setting>/<method>/ | outcomes.csv: full measurement tables; target-results.json: saved results; directional-metrics.csv where applicable |",
@@ -358,6 +401,7 @@ reader_build <- function(origin,destination) {
   origin <- normalizePath(origin,mustWork=TRUE)
   sections <- reader_sections(readLines(file.path(origin,"report.Rmd"),warn=FALSE))
   destination <- reader_copy(origin,destination)
+  setting_write_results(destination)
   supplement <- reader_supplement(sections,destination)
   writeLines(reader_main(destination),file.path(destination,"report.Rmd"))
   writeLines(review_markdown_spacing(reader_document_terms(supplement)),file.path(destination,"supplement.Rmd"))
